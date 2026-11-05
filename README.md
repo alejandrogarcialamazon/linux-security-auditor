@@ -81,7 +81,7 @@ docs/MANUAL.pdf      # Versión imprimible del manual
 
 ## Licencia
 
-Pendiente de elección por el titular. La visibilidad pública no concede por sí sola una licencia de reutilización. Valide los cambios en un entorno no productivo antes de aplicarlos en servidores reales.
+Publicado sin licencia de software por decisión del titular. La visibilidad pública no concede por sí sola una licencia de reutilización. Valide los cambios en un entorno no productivo antes de aplicarlos en servidores reales.
 
 ## Desarrollo y revisión
 

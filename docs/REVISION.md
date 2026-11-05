@@ -39,5 +39,6 @@ como un remediador apto para aplicar indiscriminadamente en producción.
 ## Publicación
 
 Publicar código, pruebas y documentación. Mantener privados los reportes reales,
-inventarios de hosts, credenciales y respaldos. Elegir una licencia explícita si
-se desea permitir reutilización por terceros.
+inventarios de hosts, credenciales y respaldos. El titular eligió publicar sin
+licencia por ahora; no se añade un archivo LICENSE. Si más adelante desea
+permitir reutilización por terceros, deberá elegir una licencia explícita.
