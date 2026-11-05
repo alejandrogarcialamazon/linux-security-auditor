@@ -13,7 +13,7 @@ class AuditorTests(unittest.TestCase):
     def test_command_timeout_is_reported(self):
         with patch.object(auditor.subprocess, 'run', side_effect=subprocess.TimeoutExpired('test', 12)):
             code, out, err = auditor.command(['test'])
-        self.assertEqual(code, 127)
+        self.assertEqual(code, 124)
         self.assertEqual(out, '')
         self.assertTrue(err)
 

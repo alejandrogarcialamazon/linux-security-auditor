@@ -122,7 +122,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
 endobj
 7 0 obj
-<< /Length 2352 >>
+<< /Length 2526 >>
 stream
 BT
 /F1 10 Tf
@@ -144,9 +144,15 @@ T*
 T*
 (Se detecta el estado activo de telnet.socket, rsh.socket, rexec.socket, tftp.socket y) Tj
 T*
-(  xinetd.service mediante systemd. Un servicio activo produce FAIL; uno inactivo, PASS; sin) Tj
+(  xinetd.service mediante systemd. La combinación de código 0 con salida active produce) Tj
 T*
-(  systemd, INFO.) Tj
+(  FAIL; código 3 con inactive o failed produce PASS respecto del criterio de actividad.) Tj
+T*
+(  Estados desconocidos, transitorios, unidades no identificadas, ausencia de systemctl o) Tj
+T*
+(  errores de consulta producen WARN. Esto no demuestra que el software esté desinstalado ni) Tj
+T*
+(  que no haya procesos fuera de estas unidades.) Tj
 T*
 () Tj
 T*
@@ -160,13 +166,19 @@ T*
 T*
 () Tj
 T*
-(• Si UFW existe, la comprobación aprueba solo si ufw status informa Status: active. Un error) Tj
+(• Si UFW existe, la comprobación aprueba solo si ufw status informa Status: active. Un) Tj
 T*
-(  del comando produce WARN; una salida válida de firewall inactivo produce FAIL.) Tj
+(  error, estado vacío, desconocido o contradictorio produce WARN; una salida válida de) Tj
 T*
-(• Si UFW no existe pero iptables sí, aprueba si la política por defecto de INPUT es DROP o) Tj
+(  firewall inactivo produce FAIL respecto de UFW.) Tj
 T*
-(  REJECT.) Tj
+(• Si UFW no existe pero iptables sí, aprueba sólo si la consulta termina correctamente y) Tj
+T*
+(  contiene una única política por defecto INPUT DROP. REJECT no es una política por defecto) Tj
+T*
+(  válida; políticas desconocidas, duplicadas, ausentes o ACCEPT producen WARN, pues no se) Tj
+T*
+(  evalúa el conjunto completo de reglas.) Tj
 T*
 (• Si no existe ninguno, informa WARN.) Tj
 T*
@@ -212,18 +224,6 @@ T*
 T*
 (|---|---|---|) Tj
 T*
-(PASS  El criterio revisado se cumple  Conservar como evidencia) Tj
-T*
-(FAIL  Se detectó una configuración insegura  Revisar, aprobar y corregir) Tj
-T*
-(WARN  No se cumple una recomendación o no se pudo concluir  Analizar el contexto) Tj
-T*
-(INFO  El control no puede evaluarse con la plataforma actual  Evaluar manualmente) Tj
-T*
-() Tj
-T*
-(El programa usa 0 si no detecta fallos, 1 si hay al menos un FAIL y 2 si falla una) Tj
-T*
 ET
 endstream
 endobj
@@ -231,13 +231,43 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
 endobj
 9 0 obj
-<< /Length 2786 >>
+<< /Length 3186 >>
 stream
 BT
 /F1 10 Tf
 48 794 Td
 14 TL
-(  remediación.) Tj
+(PASS  El criterio revisado se cumple  Conservar como evidencia) Tj
+T*
+(FAIL  Se detectó una configuración insegura  Revisar, aprobar y corregir) Tj
+T*
+(WARN  No se cumple una recomendación o no se pudo concluir  Analizar el contexto) Tj
+T*
+(INFO  Información contextual o inaplicabilidad explícitamente establecida  Revisar el) Tj
+T*
+(  alcance) Tj
+T*
+() Tj
+T*
+(El programa usa 0 si no detecta fallos, 1 si hay al menos un FAIL y 2 si falla una) Tj
+T*
+(  remediación. 0 no garantiza que todos los controles hayan podido evaluarse. Los errores de) Tj
+T*
+(  ejecución, herramientas ausentes y datos incompletos producen WARN, no INFO ni un PASS por) Tj
+T*
+(  defecto.) Tj
+T*
+() Tj
+T*
+(Los comandos se ejecutan con LCALL=C, LANG=C y LANGUAGE=C en su entorno hijo, manteniendo) Tj
+T*
+(  sin cambios el entorno del proceso padre. El tiempo máximo de consulta es 12 segundos; un) Tj
+T*
+(  timeout se registra internamente con código 124 y un error al iniciar el comando con 127.) Tj
+T*
+(  SSH informa ambos controles como WARN cuando la consulta efectiva falla, y no ofrece) Tj
+T*
+(  remediar valores ausentes o desconocidos.) Tj
 T*
 () Tj
 T*
@@ -303,6 +333,19 @@ T*
 T*
 (Tampoco se aplican reglas de firewall ni se deshabilitan servicios porque esos cambios) Tj
 T*
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R >>
+endobj
+11 0 obj
+<< /Length 1720 >>
+stream
+BT
+/F1 10 Tf
+48 794 Td
+14 TL
 (  requieren conocer puertos, dependencias y ruta de acceso de cada host.) Tj
 T*
 () Tj
@@ -333,19 +376,6 @@ T*
 T*
 (  sigue disponible para revisión. Para producción, conecte el JSON a su sistema de) Tj
 T*
-ET
-endstream
-endobj
-10 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R >>
-endobj
-11 0 obj
-<< /Length 1015 >>
-stream
-BT
-/F1 10 Tf
-48 794 Td
-14 TL
 (  inventario, SIEM o pipeline, y establezca una política explícita para tratar resultados) Tj
 T*
 (  FAIL.) Tj
@@ -403,12 +433,12 @@ xref
 0000000363 00000 n 
 0000003038 00000 n 
 0000003164 00000 n 
-0000005568 00000 n 
-0000005694 00000 n 
-0000008532 00000 n 
-0000008660 00000 n 
+0000005742 00000 n 
+0000005868 00000 n 
+0000009106 00000 n 
+0000009234 00000 n 
 trailer
 << /Size 12 /Root 1 0 R >>
 startxref
-9728
+11007
 %%EOF

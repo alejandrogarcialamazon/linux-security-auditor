@@ -35,7 +35,7 @@ python3 security_auditor.py --format markdown --output reports/auditoria.md
 python3 security_auditor.py --format json --output reports/auditoria.json
 ```
 
-El código de salida es `0` si no hay hallazgos `FAIL`, `1` si los hay y `2` ante un error de remediación.
+El código de salida es `0` si no hay hallazgos `FAIL`, `1` si los hay y `2` ante un error de remediación. Un `0` con `WARN` no significa auditoría completa: revise el resumen.
 
 ### Remediación explícita
 
@@ -95,3 +95,5 @@ GitHub Actions verifica Python 3.10–3.14 en Linux. Las pruebas de remediación
 Consulte [la evaluación del proyecto](docs/REVISION.md)
 
 Corrección de permisos: [mejora 1](docs/MEJORA-01-PERMISOS.md).
+
+Clasificación de comprobaciones inconclusas: [mejora 2](docs/MEJORA-02-INCONCLUSOS.md).

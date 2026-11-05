@@ -35,11 +35,15 @@ class Finding:
 
 def command(args: list[str]) -> tuple[int, str, str]:
     """Run a command without a shell and return decoded output."""
+    environment = os.environ.copy()
+    environment.update(LC_ALL="C", LANG="C", LANGUAGE="C")
     try:
-        result = subprocess.run(args, text=True, capture_output=True, timeout=12, check=False)
+        result = subprocess.run(args, text=True, encoding="utf-8", errors="replace", capture_output=True, timeout=12, check=False, env=environment)
         return result.returncode, result.stdout.strip(), result.stderr.strip()
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return 127, "", str(exc)
+    except subprocess.TimeoutExpired:
+        return 124, "", "Tiempo de espera agotado (12 segundos); comprobación inconclusa."
+    except OSError as exc:
+        return 127, "", f"No se pudo ejecutar el comando: {exc}"
 
 
 ACCOUNT_FILES = (
@@ -96,31 +100,42 @@ def audit_file_permissions() -> list[Finding]:
 def ssh_effective_settings() -> tuple[dict[str, str], str]:
     sshd = shutil.which("sshd")
     config = Path("/etc/ssh/sshd_config")
-    if not sshd or not config.exists():
+    try:
+        available = bool(sshd) and config.exists()
+    except OSError as exc:
+        return {}, f"No se pudo comprobar el archivo de configuración SSH: {exc}"
+    if not available:
         return {}, "sshd o /etc/ssh/sshd_config no está disponible"
     code, stdout, stderr = command([sshd, "-T", "-f", str(config)])
     if code != 0:
-        return {}, f"sshd -T falló: {stderr or stdout}"
+        return {}, f"sshd -T falló (código {code}): {stderr or stdout or 'sin detalles'}"
     settings: dict[str, str] = {}
     for line in stdout.splitlines():
         key, _, value = line.partition(" ")
         if key in {"permitrootlogin", "passwordauthentication"}:
+            if key in settings:
+                return {}, f"sshd -T devolvió un parámetro duplicado: {key}"
             settings[key] = value.strip().lower()
-    return settings, ""
+    return (settings, "") if settings else ({}, "sshd -T no devolvió parámetros reconocidos.")
 
 
 def audit_ssh() -> list[Finding]:
     settings, error = ssh_effective_settings()
     if error:
-        return [Finding("CIS-LITE-003", "Configuración efectiva de SSH", "WARN", "medium", error, "Instale/active OpenSSH Server y valide su configuración.")]
+        return [Finding(check_id, title, "WARN", "medium", error, "Revise disponibilidad, permisos y configuración de sshd; vuelva a auditar.") for check_id, title in (
+            ("CIS-LITE-003", "SSH: acceso directo de root"),
+            ("CIS-LITE-004", "SSH: autenticación por contraseña"),
+        )]
 
     findings: list[Finding] = []
     root_login = settings.get("permitrootlogin", "unknown")
+    root_known = root_login in {"yes", "no", "prohibit-password", "without-password", "forced-commands-only"}
     findings.append(Finding(
         "CIS-LITE-003", "SSH: acceso directo de root",
-        "PASS" if root_login == "no" else "FAIL", "high",
-        f"permitrootlogin={root_login}", "Defina PermitRootLogin no.",
-        remediable=root_login != "no",
+        ("PASS" if root_login == "no" else "FAIL") if root_known else "WARN", "high",
+        f"permitrootlogin={root_login}",
+        "Defina PermitRootLogin no." if root_known else "No se obtuvo un valor válido; revise sshd -T antes de corregir.",
+        remediable=root_known and root_login != "no",
     ))
     password_auth = settings.get("passwordauthentication", "unknown")
     # Password auth can be required by an organization's access model, therefore
@@ -129,7 +144,7 @@ def audit_ssh() -> list[Finding]:
         "CIS-LITE-004", "SSH: autenticación por contraseña",
         "PASS" if password_auth == "no" else "WARN", "medium",
         f"passwordauthentication={password_auth}",
-        "Tras verificar acceso por llave para una cuenta administrativa, defina PasswordAuthentication no.",
+        "No se obtuvo un valor válido; revise sshd -T antes de corregir." if password_auth not in {"yes", "no"} else "Tras verificar acceso por llave para una cuenta administrativa, defina PasswordAuthentication no.",
     ))
     return findings
 
@@ -138,11 +153,11 @@ def service_is_active(name: str) -> tuple[bool | None, str]:
     if not shutil.which("systemctl"):
         return None, "systemctl no está disponible"
     code, stdout, stderr = command(["systemctl", "is-active", name])
-    if code == 0:
+    if code == 0 and stdout == "active":
         return True, stdout
-    if code in {3, 4}:
-        return False, stdout or "inactive/not-found"
-    return None, stderr or stdout
+    if code == 3 and stdout in {"inactive", "failed"}:
+        return False, stdout
+    return None, f"Estado no concluyente (código {code}): {stderr or stdout or 'sin salida'}"
 
 
 def audit_services() -> list[Finding]:
@@ -157,7 +172,7 @@ def audit_services() -> list[Finding]:
     for unit, reason in legacy.items():
         active, evidence = service_is_active(unit)
         if active is None:
-            findings.append(Finding("CIS-LITE-005", f"Servicio {unit}", "INFO", "low", evidence, "No evaluable sin systemd."))
+            findings.append(Finding("CIS-LITE-005", f"Servicio {unit}", "WARN", "medium", evidence, "No se pudo comprobar el estado; revise systemd, permisos y nombre de unidad."))
         elif active:
             findings.append(Finding("CIS-LITE-005", f"Servicio {unit}", "FAIL", "medium", reason, f"Deshabilite el servicio si no existe una necesidad documentada: systemctl disable --now {unit}"))
         else:
@@ -170,23 +185,29 @@ def audit_firewall() -> list[Finding]:
     ufw = shutil.which("ufw")
     if ufw:
         code, stdout, stderr = command([ufw, "status"])
-        active = code == 0 and "Status: active" in stdout
+        statuses = [line.strip() for line in stdout.splitlines() if line.strip().startswith("Status:")]
+        status = "WARN"
+        if code == 0 and len(statuses) == 1 and statuses[0] in {"Status: active", "Status: inactive"}:
+            status = "PASS" if statuses[0] == "Status: active" else "FAIL"
         findings.append(Finding(
             "CIS-LITE-006", "Firewall UFW",
-            "WARN" if code != 0 else ("PASS" if active else "FAIL"), "high", stdout or stderr or "Sin salida",
-            "Defina reglas explícitas de acceso administrativo y active UFW.",
+            status, "high", f"código={code}; {stdout or stderr or 'Sin salida'}",
+            "No se pudo interpretar o ejecutar ufw status; revise el diagnóstico antes de cambiar reglas." if status == "WARN" else "Defina reglas explícitas de acceso administrativo y active UFW.",
         ))
         return findings
 
     iptables = shutil.which("iptables")
     if iptables:
         code, stdout, stderr = command([iptables, "-S"])
-        policies = [line for line in stdout.splitlines() if line.startswith("-P ")]
-        drop_default = any(line in {"-P INPUT DROP", "-P INPUT REJECT"} for line in policies)
+        policies = [line.split() for line in stdout.splitlines() if line.split()[:2] == ["-P", "INPUT"]]
+        # Only DROP is a recognized restrictive built-in policy. REJECT is a
+        # rule target, not a valid default policy. ACCEPT alone says too little
+        # about filtering rules to establish either protection or its absence.
+        drop_default = len(policies) == 1 and policies[0] == ["-P", "INPUT", "DROP"]
         findings.append(Finding(
             "CIS-LITE-006", "Firewall iptables",
             "PASS" if code == 0 and drop_default else "WARN", "high",
-            "; ".join(policies) if policies else (stderr or "No se pudieron leer políticas"),
+            f"código={code}; " + ("; ".join(" ".join(policy) for policy in policies) if code == 0 and policies else (stderr or stdout or "No se pudieron leer políticas")),
             "Revise reglas persistentes y use una política INPUT restrictiva sin bloquear su acceso actual.",
         ))
         return findings

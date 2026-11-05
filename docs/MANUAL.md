@@ -39,14 +39,14 @@ La consulta se realiza con `sshd -T -f /etc/ssh/sshd_config`, que evalúa los va
 
 ### 3.3 Servicios heredados
 
-Se detecta el estado activo de `telnet.socket`, `rsh.socket`, `rexec.socket`, `tftp.socket` y `xinetd.service` mediante systemd. Un servicio activo produce `FAIL`; uno inactivo, `PASS`; sin systemd, `INFO`.
+Se detecta el estado activo de `telnet.socket`, `rsh.socket`, `rexec.socket`, `tftp.socket` y `xinetd.service` mediante systemd. La combinación de código 0 con salida `active` produce `FAIL`; código 3 con `inactive` o `failed` produce `PASS` respecto del criterio de actividad. Estados desconocidos, transitorios, unidades no identificadas, ausencia de systemctl o errores de consulta producen `WARN`. Esto no demuestra que el software esté desinstalado ni que no haya procesos fuera de estas unidades.
 
 La herramienta no deshabilita servicios: su eliminación puede afectar aplicaciones antiguas que requieren una autorización explícita.
 
 ### 3.4 Firewall
 
-- Si UFW existe, la comprobación aprueba solo si `ufw status` informa `Status: active`. Un error del comando produce `WARN`; una salida válida de firewall inactivo produce `FAIL`.
-- Si UFW no existe pero iptables sí, aprueba si la política por defecto de `INPUT` es `DROP` o `REJECT`.
+- Si UFW existe, la comprobación aprueba solo si `ufw status` informa `Status: active`. Un error, estado vacío, desconocido o contradictorio produce `WARN`; una salida válida de firewall inactivo produce `FAIL` respecto de UFW.
+- Si UFW no existe pero iptables sí, aprueba sólo si la consulta termina correctamente y contiene una única política por defecto `INPUT DROP`. `REJECT` no es una política por defecto válida; políticas desconocidas, duplicadas, ausentes o `ACCEPT` producen `WARN`, pues no se evalúa el conjunto completo de reglas.
 - Si no existe ninguno, informa `WARN`.
 
 Una política restrictiva por sí sola no demuestra que las reglas sean correctas. En particular, esta versión no analiza nftables, firewalld ni reglas IPv6.
@@ -71,9 +71,11 @@ Los hallazgos tienen estas interpretaciones:
 | PASS | El criterio revisado se cumple | Conservar como evidencia |
 | FAIL | Se detectó una configuración insegura | Revisar, aprobar y corregir |
 | WARN | No se cumple una recomendación o no se pudo concluir | Analizar el contexto |
-| INFO | El control no puede evaluarse con la plataforma actual | Evaluar manualmente |
+| INFO | Información contextual o inaplicabilidad explícitamente establecida | Revisar el alcance |
 
-El programa usa `0` si no detecta fallos, `1` si hay al menos un `FAIL` y `2` si falla una remediación.
+El programa usa `0` si no detecta fallos, `1` si hay al menos un `FAIL` y `2` si falla una remediación. `0` no garantiza que todos los controles hayan podido evaluarse. Los errores de ejecución, herramientas ausentes y datos incompletos producen `WARN`, no `INFO` ni un PASS por defecto.
+
+Los comandos se ejecutan con `LC_ALL=C`, `LANG=C` y `LANGUAGE=C` en su entorno hijo, manteniendo sin cambios el entorno del proceso padre. El tiempo máximo de consulta es 12 segundos; un timeout se registra internamente con código 124 y un error al iniciar el comando con 127. SSH informa ambos controles como WARN cuando la consulta efectiva falla, y no ofrece remediar valores ausentes o desconocidos.
 
 ## 5. Remediación y protección contra bloqueos
 
