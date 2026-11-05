@@ -8,6 +8,7 @@ visibilidad, pero el modo de auditoría no modifica el sistema.
 from __future__ import annotations
 
 import argparse
+import grp
 import json
 import os
 import shutil
@@ -15,6 +16,7 @@ import stat
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
@@ -40,34 +42,52 @@ def command(args: list[str]) -> tuple[int, str, str]:
         return 127, "", str(exc)
 
 
-def file_mode(path: Path) -> int | None:
+ACCOUNT_FILES = (
+    (Path("/etc/passwd"), "CIS-LITE-001", "Permisos de /etc/passwd"),
+    (Path("/etc/shadow"), "CIS-LITE-002", "Permisos de /etc/shadow"),
+)
+
+
+def allowed_account_mode(path: Path, metadata: os.stat_result) -> int:
+    """Maximum mode, never a target to which restrictive modes are expanded.
+
+    shadow may be group-readable only by GID 0 or the local NSS group `shadow`.
+    An unrelated/unknown group is preserved, but must have no access.
+    """
+    if path.name == "passwd":
+        return 0o644
+    if not metadata.st_mode & 0o040 or metadata.st_gid == 0:
+        return 0o640
     try:
-        return stat.S_IMODE(path.stat().st_mode)
-    except OSError:
-        return None
+        trusted = grp.getgrgid(metadata.st_gid).gr_name == "shadow"
+    except KeyError:
+        trusted = False
+    return 0o640 if trusted else 0o600
 
 
 def audit_file_permissions() -> list[Finding]:
-    checks = [
-        (Path("/etc/passwd"), 0o644, "CIS-LITE-001", "Permisos de /etc/passwd"),
-        (Path("/etc/shadow"), 0o640, "CIS-LITE-002", "Permisos de /etc/shadow"),
-    ]
     findings: list[Finding] = []
-    for path, expected, check_id, title in checks:
-        mode = file_mode(path)
-        if mode is None:
-            findings.append(Finding(check_id, title, "WARN", "medium", f"{path} no existe o no es accesible.", "Verifique que el archivo exista y sea legible.", True))
+    for path, check_id, title in ACCOUNT_FILES:
+        try:
+            metadata = path.lstat()
+            if not stat.S_ISREG(metadata.st_mode):
+                findings.append(Finding(check_id, title, "WARN", "high", f"{path} no es un archivo regular (o es un enlace).", "Revise el tipo de archivo manualmente."))
+                continue
+            allowed = allowed_account_mode(path, metadata)
+        except OSError as exc:
+            findings.append(Finding(check_id, title, "WARN", "medium", f"No se pudieron evaluar metadatos/grupo de {path}: {exc}", "Revise existencia, acceso a metadatos y resolución del grupo; vuelva a auditar."))
             continue
-        owner = path.stat().st_uid
-        # passwd permits read by everyone but never write by group/others; shadow
-        # must not be accessible by others. Group permissions vary across distros.
-        insecure = bool(mode & 0o022) if path.name == "passwd" else bool(mode & 0o007)
-        owner_ok = owner == 0
-        status = "PASS" if not insecure and owner_ok else "FAIL"
-        evidence = f"modo={mode:04o}, uid={owner}; referencia habitual={expected:04o}"
+        mode = stat.S_IMODE(metadata.st_mode)
+        status = "FAIL" if metadata.st_uid != 0 or mode & ~allowed else "PASS"
+        target = mode & allowed
+        evidence = f"modo={mode:04o}, uid={metadata.st_uid}, gid={metadata.st_gid}; máximo permitido={allowed:04o}"
+        recommendation = (
+            f"Asegure propietario root y quite permisos excedentes (modo resultante {target:04o}); conserve el grupo."
+            if status == "FAIL" else "Sin cambios necesarios."
+        )
         findings.append(Finding(
             check_id, title, status, "high", evidence,
-            f"Ejecute chmod {expected:03o} {path} y asegure propietario root.",
+            recommendation,
             remediable=status == "FAIL",
         ))
     return findings
@@ -205,13 +225,35 @@ def require_root() -> None:
 
 def remediate_permissions() -> str:
     require_root()
-    # Preserve the distribution-specific group (e.g. `shadow`) while ensuring
-    # the account database is owned by root.
-    os.chown("/etc/passwd", 0, -1)
-    os.chown("/etc/shadow", 0, -1)
-    os.chmod("/etc/passwd", 0o644)
-    os.chmod("/etc/shadow", 0o640)
-    return "Propietario y permisos de /etc/passwd y /etc/shadow ajustados."
+    changed: list[str] = []
+    # Preflight both files before changing anything. Descriptors pin the inode;
+    # O_NOFOLLOW refuses symlinks and O_NONBLOCK avoids hanging on a FIFO.
+    with ExitStack() as stack:
+        planned = []
+        for path, _, _ in ACCOUNT_FILES:
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+            stack.callback(os.close, fd)
+            metadata = os.fstat(fd)
+            if not stat.S_ISREG(metadata.st_mode):
+                raise RuntimeError(f"{path} no es un archivo regular; no se aplicaron cambios.")
+            mode = stat.S_IMODE(metadata.st_mode)
+            planned.append((path, fd, metadata, mode & allowed_account_mode(path, metadata)))
+        for path, fd, metadata, target in planned:
+            if metadata.st_uid == 0 and stat.S_IMODE(metadata.st_mode) == target:
+                continue
+            try:
+                if metadata.st_uid != 0:
+                    os.fchown(fd, 0, -1)
+                    changed.append(f"{path}: propietario root")
+                if stat.S_IMODE(os.fstat(fd).st_mode) != target:
+                    os.fchmod(fd, target)
+                    changed.append(f"{path}: modo {target:04o}")
+                actual = os.fstat(fd)
+                if actual.st_uid != 0 or actual.st_gid != metadata.st_gid or stat.S_IMODE(actual.st_mode) != target:
+                    raise RuntimeError("La verificación de propietario/grupo/modo no coincide con lo previsto.")
+            except (OSError, RuntimeError) as exc:
+                raise RuntimeError(f"Falló la remediación de {path}: {exc}. Cambios ya realizados: {changed}. Revise el estado; no hay rollback automático.") from exc
+    return "; ".join(changed) if changed else "Sin cambios necesarios en los permisos de cuentas."
 
 
 def remediate_ssh_root_login() -> str:

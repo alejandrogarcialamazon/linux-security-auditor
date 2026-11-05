@@ -23,10 +23,10 @@ No transmite datos ni instala software. El modo de auditoría no requiere privil
 
 | ID | Revisión | Criterio de aprobación | Riesgo mitigado |
 |---|---|---|---|
-| CIS-LITE-001 | `/etc/passwd` | UID propietario igual a 0 y sin escritura para grupo/otros | Alteración de cuentas y hashes de contraseña |
-| CIS-LITE-002 | `/etc/shadow` | UID propietario igual a 0 y sin permisos para otros | Exposición de hashes de contraseña |
+| CIS-LITE-001 | `/etc/passwd` | Archivo regular, UID 0 y permisos como máximo `0644` | Alteración de cuentas y hashes de contraseña |
+| CIS-LITE-002 | `/etc/shadow` | Archivo regular, UID 0 y permisos como máximo `0640`; grupo autorizado para lectura | Exposición de hashes de contraseña |
 
-La referencia de modo habitual mostrada por el informe es `0644` para `passwd` y `0640` para `shadow`. El segundo control no obliga un grupo: Debian/Ubuntu y Red Hat pueden usar grupos distintos.
+Los modos son máximos, no valores obligatorios: `0400` y `0600` se conservan. Se rechazan ejecución, bits especiales y escritura de grupo/otros. Para `shadow`, la lectura de grupo se admite con GID 0 o grupo local `shadow` resuelto mediante NSS; con otro grupo se exige como máximo `0600`. No se cambia el GID. Los enlaces, archivos no regulares y metadatos/grupos inaccesibles producen `WARN` sin remediación automática.
 
 ### 3.2 SSH
 
@@ -84,7 +84,7 @@ sudo python3 security_auditor.py --remediate permissions --yes
 sudo python3 security_auditor.py --remediate ssh-root-login --yes
 ```
 
-`permissions` establece el propietario UID root (sin cambiar el grupo de la distribución), asigna `0644` a `/etc/passwd` y `0640` a `/etc/shadow`. `ssh-root-login` rechaza configuraciones con `Match` o `Include` para exigir revisión manual de las excepciones. En configuraciones simples crea una copia privada con modo `0600` y marca temporal con microsegundos, aplica `PermitRootLogin no` al principio y ejecuta `sshd -t` y `sshd -T`. Si falla la validación o el valor efectivo no es `no`, restaura el contenido original. No recarga el servicio: el operador debe recargarlo y probar una nueva conexión antes de cerrar su sesión existente.
+`permissions` comprueba ambos archivos antes de modificar, rechaza enlaces y archivos no regulares, establece UID root solo cuando corresponde y elimina únicamente permisos excedentes. Conserva los permisos más restrictivos y el grupo; no lee contenidos. Usa descriptores y verifica los metadatos después del cambio. No ofrece rollback transaccional: si una operación falla se informa qué cambios anteriores se realizaron. `ssh-root-login` rechaza configuraciones con `Match` o `Include` para exigir revisión manual de las excepciones. En configuraciones simples crea una copia privada con modo `0600` y marca temporal con microsegundos, aplica `PermitRootLogin no` al principio y ejecuta `sshd -t` y `sshd -T`. Si falla la validación o el valor efectivo no es `no`, restaura el contenido original. No recarga el servicio: el operador debe recargarlo y probar una nueva conexión antes de cerrar su sesión existente.
 
 La auditoría con `sshd -T` consulta valores globales; no evalúa todas las combinaciones condicionales de `Match` mediante `-C`. Un PASS global no garantiza el mismo resultado para cada usuario o dirección de origen.
 

@@ -6,8 +6,8 @@ Herramienta Python sin dependencias externas para revisar controles básicos de 
 
 | Área | ID | Comprobación |
 |---|---|---|
-| Cuentas | CIS-LITE-001 | `/etc/passwd`: propietario root y no escribible por grupo/otros |
-| Cuentas | CIS-LITE-002 | `/etc/shadow`: propietario root y no accesible por otros |
+| Cuentas | CIS-LITE-001 | `/etc/passwd`: propietario root y permisos como máximo `0644` |
+| Cuentas | CIS-LITE-002 | `/etc/shadow`: propietario root, máximo `0640` y lectura de grupo restringida |
 | SSH | CIS-LITE-003 | `PermitRootLogin no` en la configuración efectiva |
 | SSH | CIS-LITE-004 | `PasswordAuthentication no` como recomendación |
 | Servicios | CIS-LITE-005 | Telnet, rsh, rexec, tftp y xinetd activos |
@@ -42,7 +42,7 @@ El código de salida es `0` si no hay hallazgos `FAIL`, `1` si los hay y `2` ant
 La auditoría es siempre de solo lectura salvo que se indiquen ambas opciones `--remediate` y `--yes`.
 
 ```bash
-# Ajusta los permisos habituales de passwd/shadow
+# Corrige propietario y quita permisos excedentes sin ampliar los existentes
 sudo python3 security_auditor.py --remediate permissions --yes
 
 # Deshabilita el login SSH directo de root
@@ -63,7 +63,7 @@ sudo python3 security_auditor.py --remediate ssh-root-login --yes
 
 ## Limitaciones y seguridad
 
-- Los permisos de `/etc/shadow` cambian entre distribuciones; el control considera inseguro que “otros” puedan acceder, sin imponer un grupo específico.
+- `/etc/shadow` admite lectura de grupo únicamente para GID 0 o el grupo local `shadow`. Con otro grupo se exige como máximo `0600`; se conserva el GID. No se auditan ACL ni pertenencias transitivas de grupos.
 - La revisión de iptables solo mira la política por defecto de `INPUT`; no puede determinar si todas las reglas son adecuadas ni si son persistentes.
 - Los servicios se marcan por su estado activo, no se deshabilitan automáticamente.
 - No gestiona nftables, firewalld, IPv6, SELinux/AppArmor, kernel, actualizaciones ni controles CIS completos.
@@ -93,3 +93,5 @@ python3 tools/build_pdf.py docs/MANUAL.md docs/MANUAL.pdf
 GitHub Actions verifica Python 3.10–3.14 en Linux. Las pruebas de remediación usan archivos temporales y mocks: no modifican las cuentas ni SSH del equipo.
 
 Consulte [la evaluación del proyecto](docs/REVISION.md)
+
+Corrección de permisos: [mejora 1](docs/MEJORA-01-PERMISOS.md).
