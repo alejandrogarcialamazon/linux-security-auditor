@@ -1,0 +1,402 @@
+%PDF-1.4
+%âãÏÓ
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R 10 0 R] /Count 4 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 2468 >>
+stream
+BT
+/F1 10 Tf
+48 794 Td
+14 TL
+(Manual técnico: Auditor y Auto-Remediador de Seguridad Linux) Tj
+T*
+() Tj
+T*
+(1. Objetivo y alcance) Tj
+T*
+() Tj
+T*
+(Este proyecto realiza una inspección rápida de configuraciones críticas habituales en un) Tj
+T*
+(  servidor Linux y emite evidencia legible por personas \(Markdown\) y máquinas \(JSON\). Su) Tj
+T*
+(  referencia es un subconjunto educativo de prácticas CIS, llamado aquí “CIS ligero”.) Tj
+T*
+() Tj
+T*
+(El alcance es deliberadamente reducido: permisos de archivos de cuentas, configuración) Tj
+T*
+(  efectiva de SSH, servicios heredados y firewall. No afirma conformidad con CIS Benchmark) Tj
+T*
+(  ni reemplaza un análisis de vulnerabilidades, una gestión de parches o una política de) Tj
+T*
+(  seguridad.) Tj
+T*
+() Tj
+T*
+(2. Arquitectura) Tj
+T*
+() Tj
+T*
+(El ejecutable securityauditor.py tiene cuatro etapas:) Tj
+T*
+() Tj
+T*
+(1. Descubrimiento: lee metadatos locales y ejecuta comandos sin shell=True.) Tj
+T*
+(2. Evaluación: convierte cada resultado en un hallazgo PASS, FAIL, WARN o INFO.) Tj
+T*
+(3. Reporte: serializa los hallazgos y el resumen a JSON o Markdown.) Tj
+T*
+(4. Remediación opcional: solo se habilita al indicar un control y la confirmación --yes.) Tj
+T*
+() Tj
+T*
+(No transmite datos ni instala software. El modo de auditoría no requiere privilegios de) Tj
+T*
+(  root, aunque puede tener menor visibilidad sobre algunos recursos.) Tj
+T*
+() Tj
+T*
+(3. Controles evaluados) Tj
+T*
+() Tj
+T*
+(3.1 Archivos de cuentas) Tj
+T*
+() Tj
+T*
+(ID  Revisión  Criterio de aprobación  Riesgo mitigado) Tj
+T*
+(|---|---|---|---|) Tj
+T*
+(CIS-LITE-001  /etc/passwd  UID propietario igual a 0 y sin escritura para grupo/otros) Tj
+T*
+(  Alteración de cuentas y hashes de contraseña) Tj
+T*
+(CIS-LITE-002  /etc/shadow  UID propietario igual a 0 y sin permisos para otros  Exposición) Tj
+T*
+(  de hashes de contraseña) Tj
+T*
+() Tj
+T*
+(La referencia de modo habitual mostrada por el informe es 0644 para passwd y 0640 para) Tj
+T*
+(  shadow. El segundo control no obliga un grupo: Debian/Ubuntu y Red Hat pueden usar grupos) Tj
+T*
+(  distintos.) Tj
+T*
+() Tj
+T*
+(3.2 SSH) Tj
+T*
+() Tj
+T*
+(ID  Parámetro efectivo  Aprobación  Tratamiento) Tj
+T*
+(|---|---|---|---|) Tj
+T*
+(CIS-LITE-003  PermitRootLogin  no  Puede remediarse de forma controlada) Tj
+T*
+(CIS-LITE-004  PasswordAuthentication  no  Solo recomendación manual) Tj
+T*
+() Tj
+T*
+(La consulta se realiza con sshd -T -f /etc/ssh/sshdconfig, que evalúa los valores que aplica) Tj
+T*
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 2274 >>
+stream
+BT
+/F1 10 Tf
+48 794 Td
+14 TL
+(  el daemon. Si hay una configuración con sintaxis inválida, el resultado será WARN; corrija) Tj
+T*
+(  primero el archivo y ejecute sshd -t.) Tj
+T*
+() Tj
+T*
+(3.3 Servicios heredados) Tj
+T*
+() Tj
+T*
+(Se detecta el estado activo de telnet.socket, rsh.socket, rexec.socket, tftp.socket y) Tj
+T*
+(  xinetd.service mediante systemd. Un servicio activo produce FAIL; uno inactivo, PASS; sin) Tj
+T*
+(  systemd, INFO.) Tj
+T*
+() Tj
+T*
+(La herramienta no deshabilita servicios: su eliminación puede afectar aplicaciones antiguas) Tj
+T*
+(  que requieren una autorización explícita.) Tj
+T*
+() Tj
+T*
+(3.4 Firewall) Tj
+T*
+() Tj
+T*
+(• Si UFW existe, la comprobación aprueba solo si ufw status informa Status: active. Un error) Tj
+T*
+(  del comando produce WARN; una salida válida de firewall inactivo produce FAIL.) Tj
+T*
+(• Si UFW no existe pero iptables sí, aprueba si la política por defecto de INPUT es DROP o) Tj
+T*
+(  REJECT.) Tj
+T*
+(• Si no existe ninguno, informa WARN.) Tj
+T*
+() Tj
+T*
+(Una política restrictiva por sí sola no demuestra que las reglas sean correctas. En) Tj
+T*
+(  particular, esta versión no analiza nftables, firewalld ni reglas IPv6.) Tj
+T*
+() Tj
+T*
+(4. Ejecución y reportes) Tj
+T*
+() Tj
+T*
+(`bash) Tj
+T*
+(python3 securityauditor.py --format json --output reports/host.json) Tj
+T*
+(python3 securityauditor.py --format markdown --output reports/host.md) Tj
+T*
+(`) Tj
+T*
+() Tj
+T*
+(Campos principales del JSON:) Tj
+T*
+() Tj
+T*
+(• generatedat, host, platform: contexto de la ejecución.) Tj
+T*
+(• summary: número de resultados por estado.) Tj
+T*
+(• findings: ID, título, severidad, evidencia, recomendación y si es remediable.) Tj
+T*
+() Tj
+T*
+(Los hallazgos tienen estas interpretaciones:) Tj
+T*
+() Tj
+T*
+(Estado  Significado  Acción esperada) Tj
+T*
+(|---|---|---|) Tj
+T*
+(PASS  El criterio revisado se cumple  Conservar como evidencia) Tj
+T*
+(FAIL  Se detectó una configuración insegura  Revisar, aprobar y corregir) Tj
+T*
+(WARN  No se cumple una recomendación o no se pudo concluir  Analizar el contexto) Tj
+T*
+(INFO  El control no puede evaluarse con la plataforma actual  Evaluar manualmente) Tj
+T*
+() Tj
+T*
+(El programa usa 0 si no detecta fallos, 1 si hay al menos un FAIL y 2 si falla una) Tj
+T*
+(  remediación.) Tj
+T*
+() Tj
+T*
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 2677 >>
+stream
+BT
+/F1 10 Tf
+48 794 Td
+14 TL
+(5. Remediación y protección contra bloqueos) Tj
+T*
+() Tj
+T*
+(No existe una opción “arreglar todo”. Se debe elegir un control y confirmar el cambio:) Tj
+T*
+() Tj
+T*
+(`bash) Tj
+T*
+(sudo python3 securityauditor.py --remediate permissions --yes) Tj
+T*
+(sudo python3 securityauditor.py --remediate ssh-root-login --yes) Tj
+T*
+(`) Tj
+T*
+() Tj
+T*
+(permissions establece el propietario UID root \(sin cambiar el grupo de la distribución\),) Tj
+T*
+(  asigna 0644 a /etc/passwd y 0640 a /etc/shadow. ssh-root-login rechaza configuraciones con) Tj
+T*
+(  Match o Include para exigir revisión manual de las excepciones. En configuraciones simples) Tj
+T*
+(  crea una copia privada con modo 0600 y marca temporal con microsegundos, aplica) Tj
+T*
+(  PermitRootLogin no al principio y ejecuta sshd -t y sshd -T. Si falla la validación o el) Tj
+T*
+(  valor efectivo no es no, restaura el contenido original. No recarga el servicio: el) Tj
+T*
+(  operador debe recargarlo y probar una nueva conexión antes de cerrar su sesión existente.) Tj
+T*
+() Tj
+T*
+(La auditoría con sshd -T consulta valores globales; no evalúa todas las combinaciones) Tj
+T*
+(  condicionales de Match mediante -C. Un PASS global no garantiza el mismo resultado para) Tj
+T*
+(  cada usuario o dirección de origen.) Tj
+T*
+() Tj
+T*
+(No se cambia automáticamente PasswordAuthentication: una configuración incorrecta de llaves) Tj
+T*
+(  puede bloquear al operador. Antes de desactivarla, mantenga una segunda sesión abierta,) Tj
+T*
+(  confirme que una cuenta no-root accede por llave y valide la configuración con sudo sshd) Tj
+T*
+(  -t.) Tj
+T*
+() Tj
+T*
+(Tampoco se aplican reglas de firewall ni se deshabilitan servicios porque esos cambios) Tj
+T*
+(  requieren conocer puertos, dependencias y ruta de acceso de cada host.) Tj
+T*
+() Tj
+T*
+(6. Operación en Vagrant / home lab) Tj
+T*
+() Tj
+T*
+(Ejemplo de provisión que solo genera evidencia:) Tj
+T*
+() Tj
+T*
+(`bash) Tj
+T*
+(sudo install -m 0755 /vagrant/securityauditor.py /usr/local/sbin/securityauditor.py) Tj
+T*
+(sudo mkdir -p /var/log/security-auditor) Tj
+T*
+(sudo python3 /usr/local/sbin/securityauditor.py \\) Tj
+T*
+(--format json --output /var/log/security-auditor/initial.json || true) Tj
+T*
+(`) Tj
+T*
+() Tj
+T*
+(El || true evita que un hallazgo de endurecimiento corte el provisionamiento; el reporte) Tj
+T*
+(  sigue disponible para revisión. Para producción, conecte el JSON a su sistema de) Tj
+T*
+(  inventario, SIEM o pipeline, y establezca una política explícita para tratar resultados) Tj
+T*
+(  FAIL.) Tj
+T*
+() Tj
+T*
+(7. Buenas prácticas posteriores) Tj
+T*
+() Tj
+T*
+(1. Haga copia o snapshot de la VM antes de cambiar SSH/firewall.) Tj
+T*
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R >>
+endobj
+11 0 obj
+<< /Length 770 >>
+stream
+BT
+/F1 10 Tf
+48 794 Td
+14 TL
+(2. Pruebe en una VM equivalente antes que en producción.) Tj
+T*
+(3. Documente excepciones y su fecha de revisión.) Tj
+T*
+(4. Compruebe el acceso tras cada modificación.) Tj
+T*
+(5. Complete la evaluación con actualizaciones, MFA/bastion, logs, backups, SELinux/AppArmor,) Tj
+T*
+(  nftables/firewalld y escáneres de vulnerabilidades.) Tj
+T*
+() Tj
+T*
+(8. Generación del PDF) Tj
+T*
+() Tj
+T*
+(MANUAL.pdf es la versión imprimible de este documento. Para regenerarlo con Python:) Tj
+T*
+() Tj
+T*
+(`bash) Tj
+T*
+(python3 tools/buildpdf.py docs/MANUAL.md docs/MANUAL.pdf) Tj
+T*
+(`) Tj
+T*
+() Tj
+T*
+(El script utiliza solo la biblioteca estándar de Python y genera un PDF básico, por lo que) Tj
+T*
+(  no requiere Pandoc ni conexión a Internet.) Tj
+T*
+ET
+endstream
+endobj
+xref
+0 12
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000140 00000 n 
+0000000237 00000 n 
+0000000363 00000 n 
+0000002883 00000 n 
+0000003009 00000 n 
+0000005335 00000 n 
+0000005461 00000 n 
+0000008190 00000 n 
+0000008318 00000 n 
+trailer
+<< /Size 12 /Root 1 0 R >>
+startxref
+9140
+%%EOF
