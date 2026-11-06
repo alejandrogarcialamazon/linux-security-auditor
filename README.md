@@ -92,4 +92,4 @@ python3 tools/build_pdf.py docs/MANUAL.md docs/MANUAL.pdf
 
 GitHub Actions verifica Python 3.10–3.14 en Linux. Las pruebas de remediación usan archivos temporales y mocks: no modifican las cuentas ni SSH del equipo.
 
-Consulte [la evaluación del proyecto](docs/REVISION.md) y [el acceso desde Codex y OpenCode](docs/GITHUB.md).
+Consulte [la evaluación del proyecto](docs/REVISION.md)
