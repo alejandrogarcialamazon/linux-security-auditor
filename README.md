@@ -10,10 +10,11 @@ Herramienta Python sin dependencias externas para revisar controles básicos de 
 | Cuentas | CIS-LITE-002 | `/etc/shadow`: propietario root, máximo `0640` y lectura de grupo restringida |
 | SSH | CIS-LITE-003 | `PermitRootLogin no` en la configuración efectiva |
 | SSH | CIS-LITE-004 | `PasswordAuthentication no` como recomendación |
+| SSH | CIS-LITE-007 | Interacción, métodos requeridos y límites de la interpretación de MFA |
 | Servicios | CIS-LITE-005 | Telnet, rsh, rexec, tftp y xinetd activos |
 | Firewall | CIS-LITE-006 | Estado de UFW o política de entrada de iptables |
 
-> La herramienta usa `sshd -T` para consultar la configuración efectiva de SSH, por lo que considera `Include` y valores por defecto. Si ese comando no está disponible, informa `WARN`, no asume que el servidor sea seguro.
+> SSH consulta la configuración en disco con `sshd -T`, incluidos `Include` y valores por defecto. `--ssh-context` permite evaluar contextos concretos de `Match` mediante `-C`; el resultado global no cubre todas las conexiones ni acredita MFA. Si la consulta falla, informa `WARN`.
 
 ## Requisitos
 
@@ -99,3 +100,18 @@ Corrección de permisos: [mejora 1](docs/MEJORA-01-PERMISOS.md).
 Clasificación de comprobaciones inconclusas: [mejora 2](docs/MEJORA-02-INCONCLUSOS.md).
 
 Reportes con criterios, riesgos e identificadores únicos: [mejora 3](docs/MEJORA-03-REPORTES.md).
+
+## Contextos SSH
+
+```bash
+python3 security_auditor.py --ssh-context 'user=root,addr=127.0.0.1,host=localhost' --format markdown
+python3 security_auditor.py --ssh-config /ruta/sshd_config --ssh-context 'user=root,addr=127.0.0.1' --format json
+```
+
+`addr` representa el origen del cliente, no la IP del servidor que se audita.
+El ejemplo es un contexto simulado de loopback. Puede repetir `--ssh-context`
+hasta 16 veces; siempre se conserva la evaluación global como referencia.
+`host`, `laddr` y `lport` son opcionales y deben aportarse si los bloques Match los
+necesitan. Estas opciones son sólo de auditoría y no se combinan con remediaciones.
+
+Detalles y pruebas: [mejora 4](docs/MEJORA-04-CONTEXTO-SSH.md).

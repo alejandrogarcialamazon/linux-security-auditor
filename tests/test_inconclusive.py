@@ -53,8 +53,8 @@ class SSHClassificationTests(unittest.TestCase):
         for error in ['Permission denied', 'Timed out', 'No configuration', 'Malformed output']:
             with patch.object(auditor, 'ssh_effective_settings', return_value=({}, error)):
                 results = auditor.audit_ssh()
-            self.assertEqual([item.id for item in results], ['CIS-LITE-003', 'CIS-LITE-004'])
-            self.assertEqual([item.status for item in results], ['WARN', 'WARN'])
+            self.assertEqual([item.id for item in results], ['CIS-LITE-003', 'CIS-LITE-004', 'CIS-LITE-007'])
+            self.assertEqual([item.status for item in results], ['WARN', 'WARN', 'WARN'])
             self.assertFalse(any(item.remediable for item in results))
 
     def query(self, response):
@@ -167,7 +167,7 @@ class InconclusiveReportTests(unittest.TestCase):
             auditor.shutil, 'which', return_value='ufw'
         ), patch.object(auditor, 'command', return_value=(0, 'Status: inactive', '')):
             data = auditor.report_data(auditor.audit())
-        self.assertEqual(data['summary'], {'PASS': 7, 'FAIL': 2, 'WARN': 1, 'INFO': 0})
+        self.assertEqual(data['summary'], {'PASS': 7, 'FAIL': 2, 'WARN': 2, 'INFO': 0})
         self.assertEqual([item['id'] for item in data['findings'] if item['status'] == 'FAIL'], ['CIS-LITE-003', 'CIS-LITE-006'])
 
     def test_completely_inconclusive_audit_does_not_contain_pass_or_fail(self):
@@ -175,7 +175,7 @@ class InconclusiveReportTests(unittest.TestCase):
             auditor.Path, 'lstat', side_effect=PermissionError('denied')
         ):
             data = auditor.report_data(auditor.audit())
-        self.assertEqual(data['summary'], {'PASS': 0, 'FAIL': 0, 'WARN': 10, 'INFO': 0})
+        self.assertEqual(data['summary'], {'PASS': 0, 'FAIL': 0, 'WARN': 11, 'INFO': 0})
         self.assertFalse(any(item['remediable'] for item in data['findings']))
 
     def test_warn_only_retains_compatible_zero_exit_code(self):

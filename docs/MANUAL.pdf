@@ -4,7 +4,7 @@
 << /Type /Catalog /Pages 2 0 R >>
 endobj
 2 0 obj
-<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R 10 0 R] /Count 4 >>
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R 10 0 R 12 0 R] /Count 5 >>
 endobj
 3 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
@@ -122,19 +122,25 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
 endobj
 7 0 obj
-<< /Length 2678 >>
+<< /Length 2795 >>
 stream
 BT
 /F1 10 Tf
 48 794 Td
 14 TL
+(CIS-LITE-007  Interacción y AuthenticationMethods  Interpretación consultiva  No acredita) Tj
+T*
+(  MFA real) Tj
+T*
 () Tj
 T*
-(La consulta se realiza con sshd -T -f /etc/ssh/sshdconfig, que evalúa los valores que aplica) Tj
+(La consulta se realiza con sshd -T -f /etc/ssh/sshdconfig, sobre la configuración en disco.) Tj
 T*
-(  el daemon. Si hay una configuración con sintaxis inválida, el resultado será WARN; corrija) Tj
+(  No garantiza coincidencia con opciones de arranque personalizadas ni con el estado cargado) Tj
 T*
-(  primero el archivo y ejecute sshd -t.) Tj
+(  por una instancia en ejecución. Si hay una configuración con sintaxis inválida, el) Tj
+T*
+(  resultado será WARN; corrija primero el archivo y ejecute sshd -t.) Tj
 T*
 () Tj
 T*
@@ -218,12 +224,6 @@ T*
 T*
 (• scope: cantidad de comprobaciones y familias de controles. Los cinco servicios tienen IDs) Tj
 T*
-(  propios CIS-LITE-005-TELNET, -RSH, -REXEC, -TFTP y -XINETD; pertenecen a una misma) Tj
-T*
-(  familia.) Tj
-T*
-() Tj
-T*
 ET
 endstream
 endobj
@@ -231,12 +231,18 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
 endobj
 9 0 obj
-<< /Length 3165 >>
+<< /Length 3048 >>
 stream
 BT
 /F1 10 Tf
 48 794 Td
 14 TL
+(  propios CIS-LITE-005-TELNET, -RSH, -REXEC, -TFTP y -XINETD; pertenecen a una misma) Tj
+T*
+(  familia.) Tj
+T*
+() Tj
+T*
 (Los reportes Markdown separan observación, criterio, riesgo y acción. Los PASS muestran «Sin) Tj
 T*
 (  cambios necesarios». La severidad expresa el impacto potencial del incumplimiento, no una) Tj
@@ -287,7 +293,7 @@ T*
 T*
 (  timeout se registra internamente con código 124 y un error al iniciar el comando con 127.) Tj
 T*
-(  SSH informa ambos controles como WARN cuando la consulta efectiva falla, y no ofrece) Tj
+(  SSH informa los tres controles como WARN cuando la consulta efectiva falla, y no ofrece) Tj
 T*
 (  remediar valores ausentes o desconocidos.) Tj
 T*
@@ -327,12 +333,6 @@ T*
 T*
 (  temporal con microsegundos, aplica PermitRootLogin no al principio y ejecuta sshd -t y) Tj
 T*
-(  sshd -T. Si falla la validación o el valor efectivo no es no, restaura el contenido) Tj
-T*
-(  original. No recarga el servicio: el operador debe recargarlo y probar una nueva conexión) Tj
-T*
-(  antes de cerrar su sesión existente.) Tj
-T*
 ET
 endstream
 endobj
@@ -340,19 +340,67 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R >>
 endobj
 11 0 obj
-<< /Length 2391 >>
+<< /Length 3207 >>
 stream
 BT
 /F1 10 Tf
 48 794 Td
 14 TL
+(  sshd -T. Si falla la validación o el valor efectivo no es no, restaura el contenido) Tj
+T*
+(  original. No recarga el servicio: el operador debe recargarlo y probar una nueva conexión) Tj
+T*
+(  antes de cerrar su sesión existente.) Tj
+T*
 () Tj
 T*
-(La auditoría con sshd -T consulta valores globales; no evalúa todas las combinaciones) Tj
+(La auditoría predeterminada con sshd -T consulta valores globales. --ssh-context) Tj
 T*
-(  condicionales de Match mediante -C. Un PASS global no garantiza el mismo resultado para) Tj
+(  'user=root,addr=127.0.0.1,host=localhost' agrega una consulta -C para ese contexto, sin) Tj
 T*
-(  cada usuario o dirección de origen.) Tj
+(  abrir una sesión SSH. Es repetible hasta 16 veces; user/addr son obligatorios,) Tj
+T*
+(  host/laddr/lport opcionales. addr es la IP de origen del cliente; laddr/lport son) Tj
+T*
+(  dirección y puerto locales del servidor. Si faltan atributos exigidos por Match, la) Tj
+T*
+(  consulta puede quedar como WARN. Se rechazan campos desconocidos, duplicados, valores) Tj
+T*
+(  vacíos, separadores y puertos inválidos. Contextos equivalentes se deduplican y los IDs) Tj
+T*
+(  usan un sufijo CTX estable. JSON añade context y source a cada hallazgo. Sólo se evalúan) Tj
+T*
+(  los contextos suministrados, no todas las conexiones posibles.) Tj
+T*
+() Tj
+T*
+(--ssh-config selecciona otro archivo para consulta. No se admite --remediate junto a --ssh-) Tj
+T*
+(  context o --ssh-config. Los hallazgos contextuales y de archivos alternativos no se) Tj
+T*
+(  anuncian como remediables. No se recargan servicios.) Tj
+T*
+() Tj
+T*
+(without-password se interpreta como alias de prohibit-password: deshabilita contraseña e) Tj
+T*
+(  interacción para root, pero incumple la política de prohibir todo login directo de root.) Tj
+T*
+(  forced-commands-only tiene una explicación diferente. CIS-LITE-007 incorpora) Tj
+T*
+(  PubkeyAuthentication, KbdInteractiveAuthentication, UsePAM y AuthenticationMethods. Una) Tj
+T*
+(  secuencia con llave y otro método se informa como INFO si los parámetros necesarios están) Tj
+T*
+(  reconocidos y habilitados; alternativas que admiten interacción, datos incompletos o) Tj
+T*
+(  métodos requeridos deshabilitados producen WARN. Ningún resultado confirma factores) Tj
+T*
+(  independientes, la configuración interna de PAM ni MFA real. PASS en el control 004 sólo) Tj
+T*
+(  se refiere a PasswordAuthentication: no implica que keyboard-interactive esté) Tj
+T*
+(  deshabilitado.) Tj
 T*
 () Tj
 T*
@@ -394,6 +442,19 @@ T*
 T*
 () Tj
 T*
+ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 13 0 R >>
+endobj
+13 0 obj
+<< /Length 1203 >>
+stream
+BT
+/F1 10 Tf
+48 794 Td
+14 TL
 (El || true evita que un hallazgo de endurecimiento corte el provisionamiento; el reporte) Tj
 T*
 (  sigue disponible para revisión. Para producción, conecte el JSON a su sistema de) Tj
@@ -446,21 +507,23 @@ ET
 endstream
 endobj
 xref
-0 12
+0 14
 0000000000 65535 f 
 0000000015 00000 n 
 0000000064 00000 n 
-0000000140 00000 n 
-0000000237 00000 n 
-0000000363 00000 n 
-0000003038 00000 n 
-0000003164 00000 n 
-0000005894 00000 n 
-0000006020 00000 n 
-0000009237 00000 n 
-0000009365 00000 n 
+0000000147 00000 n 
+0000000244 00000 n 
+0000000370 00000 n 
+0000003045 00000 n 
+0000003171 00000 n 
+0000006018 00000 n 
+0000006144 00000 n 
+0000009244 00000 n 
+0000009372 00000 n 
+0000012632 00000 n 
+0000012760 00000 n 
 trailer
-<< /Size 12 /Root 1 0 R >>
+<< /Size 14 /Root 1 0 R >>
 startxref
-11809
+14016
 %%EOF

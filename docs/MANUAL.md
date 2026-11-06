@@ -34,8 +34,9 @@ Los modos son máximos, no valores obligatorios: `0400` y `0600` se conservan. S
 |---|---|---|---|
 | CIS-LITE-003 | `PermitRootLogin` | `no` | Puede remediarse de forma controlada |
 | CIS-LITE-004 | `PasswordAuthentication` | `no` | Solo recomendación manual |
+| CIS-LITE-007 | Interacción y AuthenticationMethods | Interpretación consultiva | No acredita MFA real |
 
-La consulta se realiza con `sshd -T -f /etc/ssh/sshd_config`, que evalúa los valores que aplica el daemon. Si hay una configuración con sintaxis inválida, el resultado será `WARN`; corrija primero el archivo y ejecute `sshd -t`.
+La consulta se realiza con `sshd -T -f /etc/ssh/sshd_config`, sobre la configuración en disco. No garantiza coincidencia con opciones de arranque personalizadas ni con el estado cargado por una instancia en ejecución. Si hay una configuración con sintaxis inválida, el resultado será `WARN`; corrija primero el archivo y ejecute `sshd -t`.
 
 ### 3.3 Servicios heredados
 
@@ -78,7 +79,7 @@ Los hallazgos tienen estas interpretaciones:
 
 El programa usa `0` si no detecta fallos, `1` si hay al menos un `FAIL` y `2` si falla una remediación. `0` no garantiza que todos los controles hayan podido evaluarse. Los errores de ejecución, herramientas ausentes y datos incompletos producen `WARN`, no `INFO` ni un PASS por defecto.
 
-Los comandos se ejecutan con `LC_ALL=C`, `LANG=C` y `LANGUAGE=C` en su entorno hijo, manteniendo sin cambios el entorno del proceso padre. El tiempo máximo de consulta es 12 segundos; un timeout se registra internamente con código 124 y un error al iniciar el comando con 127. SSH informa ambos controles como WARN cuando la consulta efectiva falla, y no ofrece remediar valores ausentes o desconocidos.
+Los comandos se ejecutan con `LC_ALL=C`, `LANG=C` y `LANGUAGE=C` en su entorno hijo, manteniendo sin cambios el entorno del proceso padre. El tiempo máximo de consulta es 12 segundos; un timeout se registra internamente con código 124 y un error al iniciar el comando con 127. SSH informa los tres controles como WARN cuando la consulta efectiva falla, y no ofrece remediar valores ausentes o desconocidos.
 
 ## 5. Remediación y protección contra bloqueos
 
@@ -91,7 +92,11 @@ sudo python3 security_auditor.py --remediate ssh-root-login --yes
 
 `permissions` comprueba ambos archivos antes de modificar, rechaza enlaces y archivos no regulares, establece UID root solo cuando corresponde y elimina únicamente permisos excedentes. Conserva los permisos más restrictivos y el grupo; no lee contenidos. Usa descriptores y verifica los metadatos después del cambio. No ofrece rollback transaccional: si una operación falla se informa qué cambios anteriores se realizaron. `ssh-root-login` rechaza configuraciones con `Match` o `Include` para exigir revisión manual de las excepciones. En configuraciones simples crea una copia privada con modo `0600` y marca temporal con microsegundos, aplica `PermitRootLogin no` al principio y ejecuta `sshd -t` y `sshd -T`. Si falla la validación o el valor efectivo no es `no`, restaura el contenido original. No recarga el servicio: el operador debe recargarlo y probar una nueva conexión antes de cerrar su sesión existente.
 
-La auditoría con `sshd -T` consulta valores globales; no evalúa todas las combinaciones condicionales de `Match` mediante `-C`. Un PASS global no garantiza el mismo resultado para cada usuario o dirección de origen.
+La auditoría predeterminada con `sshd -T` consulta valores globales. `--ssh-context 'user=root,addr=127.0.0.1,host=localhost'` agrega una consulta `-C` para ese contexto, sin abrir una sesión SSH. Es repetible hasta 16 veces; user/addr son obligatorios, host/laddr/lport opcionales. addr es la IP de origen del cliente; laddr/lport son dirección y puerto locales del servidor. Si faltan atributos exigidos por Match, la consulta puede quedar como WARN. Se rechazan campos desconocidos, duplicados, valores vacíos, separadores y puertos inválidos. Contextos equivalentes se deduplican y los IDs usan un sufijo CTX estable. JSON añade context y source a cada hallazgo. Sólo se evalúan los contextos suministrados, no todas las conexiones posibles.
+
+`--ssh-config` selecciona otro archivo para consulta. No se admite --remediate junto a --ssh-context o --ssh-config. Los hallazgos contextuales y de archivos alternativos no se anuncian como remediables. No se recargan servicios.
+
+without-password se interpreta como alias de prohibit-password: deshabilita contraseña e interacción para root, pero incumple la política de prohibir todo login directo de root. forced-commands-only tiene una explicación diferente. CIS-LITE-007 incorpora PubkeyAuthentication, KbdInteractiveAuthentication, UsePAM y AuthenticationMethods. Una secuencia con llave y otro método se informa como INFO si los parámetros necesarios están reconocidos y habilitados; alternativas que admiten interacción, datos incompletos o métodos requeridos deshabilitados producen WARN. Ningún resultado confirma factores independientes, la configuración interna de PAM ni MFA real. PASS en el control 004 sólo se refiere a PasswordAuthentication: no implica que keyboard-interactive esté deshabilitado.
 
 No se cambia automáticamente `PasswordAuthentication`: una configuración incorrecta de llaves puede bloquear al operador. Antes de desactivarla, mantenga una segunda sesión abierta, confirme que una cuenta no-root accede por llave y valide la configuración con `sudo sshd -t`.
 

@@ -9,13 +9,15 @@ from __future__ import annotations
 
 import argparse
 import grp
+import hashlib
+import ipaddress
 import json
 import os
 import shutil
 import stat
 import subprocess
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from contextlib import ExitStack
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,9 +35,11 @@ class Finding:
     remediable: bool = False
     expected: str = ""
     risk: str = ""
+    context: dict[str, str] = field(default_factory=dict)
+    source: str = ""
 
     def __post_init__(self) -> None:
-        family = "CIS-LITE-005" if self.id.startswith("CIS-LITE-005-") else self.id
+        family = control_family(self.id)
         details = {
             "CIS-LITE-001": ("Archivo regular, UID 0 y permisos contenidos en 0644.", "Alteración de las cuentas del sistema."),
             "CIS-LITE-002": ("Archivo regular, UID 0; máximo 0640 para grupo root/shadow, o 0600 para otro grupo.", "Exposición o alteración de hashes de contraseñas."),
@@ -43,12 +47,17 @@ class Finding:
             "CIS-LITE-004": ("PasswordAuthentication no, según la política de acceso por llave.", "Intentos de autenticación mediante contraseñas."),
             "CIS-LITE-005": ("La unidad consultada no debe estar activa.", "Exposición de servicios heredados o innecesarios."),
             "CIS-LITE-006": ("Firewall soportado consultable y criterio restrictivo comprobado.", "Exposición de servicios sin el filtrado previsto."),
+            "CIS-LITE-007": ("Identificar vías interactivas y requisitos de autenticación; MFA requiere verificación adicional.", "Confundir una secuencia de métodos con factores independientes o una política sin contraseñas."),
         }
         expected, risk = details.get(family, ("Consultar la definición del control.", "Evaluar el impacto del incumplimiento."))
         self.expected = self.expected or expected
         self.risk = self.risk or risk
         if self.status == "PASS":
             self.recommendation = "Sin cambios necesarios."
+
+
+def control_family(identifier: str) -> str:
+    return "-".join(identifier.split("-")[:3]) if identifier.startswith("CIS-LITE-") else identifier
 
 
 def command(args: list[str]) -> tuple[int, str, str]:
@@ -115,43 +124,131 @@ def audit_file_permissions() -> list[Finding]:
     return findings
 
 
-def ssh_effective_settings() -> tuple[dict[str, str], str]:
+def normalize_ssh_context(context: dict[str, str]) -> dict[str, str]:
+    """Validate -C values; never accept an extra field hidden in a value."""
+    if not {"user", "addr"} <= context.keys():
+        raise ValueError("Cada contexto SSH requiere user y addr.")
+    if context.keys() - {"user", "addr", "host", "laddr", "lport"}:
+        raise ValueError("Contexto SSH con campos no soportados.")
+    normalized = {}
+    for key, value in sorted(context.items()):
+        if not isinstance(value, str) or not value or any(char in ",=" or char.isspace() or ord(char) < 32 or ord(char) == 127 for char in value):
+            raise ValueError(f"Valor inválido para {key}.")
+        if key in {"addr", "laddr"}:
+            value = str(ipaddress.ip_address(value))
+        if key == "lport":
+            if not value.isascii() or not value.isdigit() or not 1 <= int(value) <= 65535:
+                raise ValueError("lport debe estar entre 1 y 65535.")
+            value = str(int(value))
+        normalized[key] = value
+    return normalized
+
+
+def parse_ssh_context(value: str) -> dict[str, str]:
+    try:
+        context = {}
+        for item in value.split(","):
+            key, separator, data = item.partition("=")
+            if not separator or key in context:
+                raise ValueError("Contexto SSH inválido o con campos duplicados.")
+            context[key] = data
+        return normalize_ssh_context(context)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
+def ssh_context_spec(context: dict[str, str]) -> str:
+    return ",".join(f"{key}={value}" for key, value in normalize_ssh_context(context).items())
+
+
+SSH_KEYS = {"permitrootlogin", "passwordauthentication", "kbdinteractiveauthentication", "pubkeyauthentication", "usepam", "authenticationmethods"}
+
+
+def ssh_effective_settings(context: dict[str, str] | None = None, config: Path | None = None) -> tuple[dict[str, str], str]:
     sshd = shutil.which("sshd")
-    config = Path("/etc/ssh/sshd_config")
+    config = config if config is not None else Path("/etc/ssh/sshd_config")
     try:
         available = bool(sshd) and config.exists()
     except OSError as exc:
         return {}, f"No se pudo comprobar el archivo de configuración SSH: {exc}"
     if not available:
         return {}, "sshd o /etc/ssh/sshd_config no está disponible"
-    code, stdout, stderr = command([sshd, "-T", "-f", str(config)])
+    args = [sshd, "-T", "-f", str(config)]
+    if context is not None:
+        try:
+            args.extend(["-C", ssh_context_spec(context)])
+        except ValueError as exc:
+            return {}, f"Contexto SSH inválido: {exc}"
+    code, stdout, stderr = command(args)
     if code != 0:
         return {}, f"sshd -T falló (código {code}): {stderr or stdout or 'sin detalles'}"
     settings: dict[str, str] = {}
     for line in stdout.splitlines():
-        key, _, value = line.partition(" ")
-        if key in {"permitrootlogin", "passwordauthentication"}:
+        parts = line.split(None, 1)
+        if not parts:
+            continue
+        key, value = parts[0], parts[1] if len(parts) == 2 else ""
+        if key in SSH_KEYS:
             if key in settings:
                 return {}, f"sshd -T devolvió un parámetro duplicado: {key}"
             settings[key] = value.strip().lower()
     return (settings, "") if settings else ({}, "sshd -T no devolvió parámetros reconocidos.")
 
 
-def audit_ssh() -> list[Finding]:
-    settings, error = ssh_effective_settings()
+def ssh_authentication_finding(settings: dict[str, str]) -> Finding:
+    keys = ("passwordauthentication", "kbdinteractiveauthentication", "pubkeyauthentication", "usepam")
+    methods = settings.get("authenticationmethods", "unknown")
+    evidence = "; ".join(f"{key}={settings.get(key, 'unknown')}" for key in (*keys, "authenticationmethods"))
+    action = "Revise las rutas de autenticación y verifique los factores reales; no desactive métodos sin probar acceso alternativo."
+    if any(settings.get(key) not in {"yes", "no"} for key in keys):
+        return Finding("CIS-LITE-007", "SSH: interacción y requisitos de autenticación", "WARN", "medium", evidence + "; datos incompletos", action)
+    if methods == "any":
+        status = "PASS" if settings["passwordauthentication"] == settings["kbdinteractiveauthentication"] == "no" and settings["pubkeyauthentication"] == "yes" else "WARN"
+        evidence += "; sin secuencia obligatoria de métodos; MFA no verificada"
+    else:
+        alternatives = [item.split(",") for item in methods.split()]
+        supported = {"publickey", "password", "keyboard-interactive", "gssapi-with-mic", "hostbased"}
+        valid = bool(alternatives) and all(
+            method.split(":", 1)[0] in supported and (":" not in method or (method.startswith("keyboard-interactive:") and bool(method.partition(":")[2])))
+            for chain in alternatives for method in chain
+        )
+        if not valid:
+            return Finding("CIS-LITE-007", "SSH: interacción y requisitos de autenticación", "WARN", "medium", evidence + "; secuencia desconocida", action)
+        bases = [[method.split(":", 1)[0] for method in chain] for chain in alternatives]
+        options = {"publickey": "pubkeyauthentication", "password": "passwordauthentication", "keyboard-interactive": "kbdinteractiveauthentication"}
+        disabled = any(settings[options[method]] == "no" for chain in bases for method in chain if method in options)
+        multiple = all("publickey" in chain and len(chain) > 1 for chain in bases)
+        interactive = any(method in {"password", "keyboard-interactive"} for chain in bases for method in chain)
+        only_key = all(chain == ["publickey"] for chain in bases)
+        status = "WARN" if disabled else ("PASS" if only_key else ("INFO" if multiple else ("WARN" if interactive else "INFO")))
+        evidence += "; " + ("hay secuencias con métodos deshabilitados" if disabled else ("todas las alternativas exigen llave y una secuencia adicional" if multiple else "alternativas explícitas de autenticación"))
+        evidence += "; la configuración no demuestra independencia de factores ni MFA real"
+    return Finding("CIS-LITE-007", "SSH: interacción y requisitos de autenticación", status, "medium", evidence, action)
+
+
+def audit_ssh_context(context: dict[str, str] | None = None, config: Path | None = None) -> list[Finding]:
+    settings, error = ssh_effective_settings() if context is None and config is None else ssh_effective_settings(context, config)
     if error:
         return [Finding(check_id, title, "WARN", "medium", error, "Revise disponibilidad, permisos y configuración de sshd; vuelva a auditar.") for check_id, title in (
             ("CIS-LITE-003", "SSH: acceso directo de root"),
             ("CIS-LITE-004", "SSH: autenticación por contraseña"),
+            ("CIS-LITE-007", "SSH: interacción y requisitos de autenticación"),
         )]
 
     findings: list[Finding] = []
     root_login = settings.get("permitrootlogin", "unknown")
+    root_meanings = {
+        "no": "acceso SSH de root prohibido",
+        "yes": "la configuración permite el acceso SSH directo de root",
+        "without-password": "alias de prohibit-password: prohíbe contraseña e interacción para root, pero no todas las formas de acceso",
+        "prohibit-password": "prohíbe contraseña e interacción para root, pero no todas las formas de acceso",
+        "forced-commands-only": "permite llave de root sólo con comando forzado",
+    }
     root_known = root_login in {"yes", "no", "prohibit-password", "without-password", "forced-commands-only"}
     findings.append(Finding(
         "CIS-LITE-003", "SSH: acceso directo de root",
         ("PASS" if root_login == "no" else "FAIL") if root_known else "WARN", "high",
-        f"permitrootlogin={root_login}",
+        f"permitrootlogin={root_login}; {root_meanings.get(root_login, 'valor no reconocido')}",
         "Defina PermitRootLogin no." if root_known else "No se obtuvo un valor válido; revise sshd -T antes de corregir.",
         remediable=root_known and root_login != "no",
     ))
@@ -164,7 +261,33 @@ def audit_ssh() -> list[Finding]:
         f"passwordauthentication={password_auth}",
         "No se obtuvo un valor válido; revise sshd -T antes de corregir." if password_auth not in {"yes", "no"} else "Tras verificar acceso por llave para una cuenta administrativa, defina PasswordAuthentication no.",
     ))
+    findings.append(ssh_authentication_finding(settings))
     return findings
+
+
+def audit_ssh(contexts: list[dict[str, str]] | None = None, config: Path | None = None) -> list[Finding]:
+    if contexts and len(contexts) > 16:
+        raise ValueError("Se admiten como máximo 16 contextos SSH.")
+    results = []
+    seen = set()
+    for context in [None, *(contexts or [])]:
+        spec = ssh_context_spec(context) if context is not None else "global (sin evaluación Match por conexión)"
+        if spec in seen:
+            continue
+        seen.add(spec)
+        source = str(config) if config is not None else "/etc/ssh/sshd_config"
+        for finding in audit_ssh_context(context, config):
+            if context is not None:
+                suffix = hashlib.sha256(spec.encode()).hexdigest()[:12].upper()
+                finding.id += f"-CTX-{suffix}"
+                finding.context = normalize_ssh_context(context)
+                finding.remediable = False
+            if config is not None:
+                finding.remediable = False
+            finding.source = source
+            finding.evidence = f"archivo={source}; contexto={spec}; {finding.evidence}"
+            results.append(finding)
+    return results
 
 
 def service_is_active(name: str) -> tuple[bool | None, str]:
@@ -236,10 +359,10 @@ def audit_firewall() -> list[Finding]:
     return [Finding("CIS-LITE-006", "Firewall", "WARN", "high", "No se encontró UFW ni iptables.", "Instale y configure un firewall compatible con su distribución.")]
 
 
-def audit() -> list[Finding]:
+def audit(ssh_contexts: list[dict[str, str]] | None = None, ssh_config: Path | None = None) -> list[Finding]:
     findings: list[Finding] = []
     findings.extend(audit_file_permissions())
-    findings.extend(audit_ssh())
+    findings.extend(audit_ssh(ssh_contexts, ssh_config) if ssh_contexts or ssh_config is not None else audit_ssh())
     findings.extend(audit_services())
     findings.extend(audit_firewall())
     return findings
@@ -339,7 +462,7 @@ def report_data(findings: list[Finding]) -> dict:
         "summary": counts,
         "scope": {
             "checks": len(findings),
-            "control_families": len({"CIS-LITE-005" if item.id.startswith("CIS-LITE-005-") else item.id for item in findings}),
+            "control_families": len({control_family(item.id) for item in findings}),
         },
         "findings": [asdict(item) for item in findings],
     }
@@ -355,6 +478,7 @@ def markdown_report(data: dict) -> str:
         f"- Resultado: {summary['PASS']} PASS, {summary['FAIL']} FAIL, {summary['WARN']} WARN, {summary['INFO']} INFO",
         f"- Alcance: {data.get('scope', {}).get('checks', len(data['findings']))} comprobaciones; no representa un porcentaje de cumplimiento CIS.",
         "- Severidad: impacto potencial si el criterio se incumple; un PASS no requiere corrección.",
+        "- SSH: configuración en disco; los resultados globales no cubren todos los Match ni prueban acceso real o MFA.",
         "",
         "| ID | Estado | Severidad | Control | Evidencia | Criterio esperado | Riesgo del incumplimiento | Acción propuesta |",
         "|---|---|---|---|---|---|---|---|",
@@ -382,7 +506,13 @@ def main() -> int:
     parser.add_argument("--output", type=Path, help="Ruta de salida (por defecto: stdout)")
     parser.add_argument("--remediate", choices=("permissions", "ssh-root-login"), help="Control seguro que desea remediar")
     parser.add_argument("--yes", action="store_true", help="Confirma el cambio solicitado; obligatorio con --remediate")
+    parser.add_argument("--ssh-context", action="append", type=parse_ssh_context, default=[], metavar="user=USUARIO,addr=IP[,host=NOMBRE,laddr=IP,lport=PUERTO]", help="Contexto de conexión SSH; repetible, máximo 16")
+    parser.add_argument("--ssh-config", type=Path, help="Archivo de configuración SSH a consultar; sólo auditoría")
     args = parser.parse_args()
+    if len(args.ssh_context) > 16:
+        parser.error("Se admiten como máximo 16 contextos SSH.")
+    if args.remediate and (args.ssh_context or args.ssh_config is not None):
+        parser.error("--remediate no admite --ssh-context ni --ssh-config; estas opciones son de auditoría.")
 
     if args.remediate:
         if not args.yes:
@@ -397,7 +527,7 @@ def main() -> int:
             print(f"ERROR DE REMEDIACIÓN: {exc}", file=sys.stderr)
             return 2
 
-    data = report_data(audit())
+    data = report_data(audit(args.ssh_context, args.ssh_config) if args.ssh_context or args.ssh_config is not None else audit())
     if args.output:
         write_report(data, args.output, args.format)
         print(f"Reporte escrito en {args.output}", file=sys.stderr)
