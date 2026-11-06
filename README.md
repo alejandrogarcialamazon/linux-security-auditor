@@ -97,3 +97,5 @@ Consulte [la evaluación del proyecto](docs/REVISION.md)
 Corrección de permisos: [mejora 1](docs/MEJORA-01-PERMISOS.md).
 
 Clasificación de comprobaciones inconclusas: [mejora 2](docs/MEJORA-02-INCONCLUSOS.md).
+
+Reportes con criterios, riesgos e identificadores únicos: [mejora 3](docs/MEJORA-03-REPORTES.md).

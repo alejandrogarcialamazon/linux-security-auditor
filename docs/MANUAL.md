@@ -62,7 +62,10 @@ Campos principales del JSON:
 
 - `generated_at`, `host`, `platform`: contexto de la ejecución.
 - `summary`: número de resultados por estado.
-- `findings`: ID, título, severidad, evidencia, recomendación y si es remediable.
+- `findings`: ID, título, severidad, evidencia, criterio esperado (`expected`), riesgo potencial (`risk`), recomendación y si es remediable.
+- `scope`: cantidad de comprobaciones y familias de controles. Los cinco servicios tienen IDs propios `CIS-LITE-005-TELNET`, `-RSH`, `-REXEC`, `-TFTP` y `-XINETD`; pertenecen a una misma familia.
+
+Los reportes Markdown separan observación, criterio, riesgo y acción. Los PASS muestran «Sin cambios necesarios». La severidad expresa el impacto potencial del incumplimiento, no una corrección pendiente en un control aprobado. Los lectores JSON deben aceptar los campos adicionales; cambia el ID de cada servicio. Los reportes anteriores todavía pueden renderizarse, indicando los campos no registrados. No se calcula un porcentaje de cumplimiento CIS.
 
 Los hallazgos tienen estas interpretaciones:
 

@@ -31,6 +31,24 @@ class Finding:
     evidence: str
     recommendation: str
     remediable: bool = False
+    expected: str = ""
+    risk: str = ""
+
+    def __post_init__(self) -> None:
+        family = "CIS-LITE-005" if self.id.startswith("CIS-LITE-005-") else self.id
+        details = {
+            "CIS-LITE-001": ("Archivo regular, UID 0 y permisos contenidos en 0644.", "Alteración de las cuentas del sistema."),
+            "CIS-LITE-002": ("Archivo regular, UID 0; máximo 0640 para grupo root/shadow, o 0600 para otro grupo.", "Exposición o alteración de hashes de contraseñas."),
+            "CIS-LITE-003": ("PermitRootLogin no en el contexto evaluado.", "Acceso administrativo directo con la cuenta root."),
+            "CIS-LITE-004": ("PasswordAuthentication no, según la política de acceso por llave.", "Intentos de autenticación mediante contraseñas."),
+            "CIS-LITE-005": ("La unidad consultada no debe estar activa.", "Exposición de servicios heredados o innecesarios."),
+            "CIS-LITE-006": ("Firewall soportado consultable y criterio restrictivo comprobado.", "Exposición de servicios sin el filtrado previsto."),
+        }
+        expected, risk = details.get(family, ("Consultar la definición del control.", "Evaluar el impacto del incumplimiento."))
+        self.expected = self.expected or expected
+        self.risk = self.risk or risk
+        if self.status == "PASS":
+            self.recommendation = "Sin cambios necesarios."
 
 
 def command(args: list[str]) -> tuple[int, str, str]:
@@ -170,13 +188,14 @@ def audit_services() -> list[Finding]:
     }
     findings: list[Finding] = []
     for unit, reason in legacy.items():
+        check_id = f"CIS-LITE-005-{unit.split('.')[0].upper()}"
         active, evidence = service_is_active(unit)
         if active is None:
-            findings.append(Finding("CIS-LITE-005", f"Servicio {unit}", "WARN", "medium", evidence, "No se pudo comprobar el estado; revise systemd, permisos y nombre de unidad."))
+            findings.append(Finding(check_id, f"Servicio {unit}", "WARN", "medium", evidence, "No se pudo comprobar el estado; revise systemd, permisos y nombre de unidad."))
         elif active:
-            findings.append(Finding("CIS-LITE-005", f"Servicio {unit}", "FAIL", "medium", reason, f"Deshabilite el servicio si no existe una necesidad documentada: systemctl disable --now {unit}"))
+            findings.append(Finding(check_id, f"Servicio {unit}", "FAIL", "medium", reason, f"Deshabilite el servicio si no existe una necesidad documentada: systemctl disable --now {unit}"))
         else:
-            findings.append(Finding("CIS-LITE-005", f"Servicio {unit}", "PASS", "low", evidence, "Sin acción requerida."))
+            findings.append(Finding(check_id, f"Servicio {unit}", "PASS", "low", evidence, "Sin cambios necesarios."))
     return findings
 
 
@@ -193,6 +212,7 @@ def audit_firewall() -> list[Finding]:
             "CIS-LITE-006", "Firewall UFW",
             status, "high", f"código={code}; {stdout or stderr or 'Sin salida'}",
             "No se pudo interpretar o ejecutar ufw status; revise el diagnóstico antes de cambiar reglas." if status == "WARN" else "Defina reglas explícitas de acceso administrativo y active UFW.",
+            expected="Consulta UFW correcta y un único Status: active.",
         ))
         return findings
 
@@ -209,6 +229,7 @@ def audit_firewall() -> list[Finding]:
             "PASS" if code == 0 and drop_default else "WARN", "high",
             f"código={code}; " + ("; ".join(" ".join(policy) for policy in policies) if code == 0 and policies else (stderr or stdout or "No se pudieron leer políticas")),
             "Revise reglas persistentes y use una política INPUT restrictiva sin bloquear su acceso actual.",
+            expected="Consulta iptables correcta y una única política INPUT DROP; no evalúa todas las reglas.",
         ))
         return findings
 
@@ -316,6 +337,10 @@ def report_data(findings: list[Finding]) -> dict:
         "host": os.uname().nodename,
         "platform": " ".join(os.uname()),
         "summary": counts,
+        "scope": {
+            "checks": len(findings),
+            "control_families": len({"CIS-LITE-005" if item.id.startswith("CIS-LITE-005-") else item.id for item in findings}),
+        },
         "findings": [asdict(item) for item in findings],
     }
 
@@ -328,13 +353,18 @@ def markdown_report(data: dict) -> str:
         f"- Host: `{data['host']}`",
         f"- Fecha UTC: `{data['generated_at']}`",
         f"- Resultado: {summary['PASS']} PASS, {summary['FAIL']} FAIL, {summary['WARN']} WARN, {summary['INFO']} INFO",
+        f"- Alcance: {data.get('scope', {}).get('checks', len(data['findings']))} comprobaciones; no representa un porcentaje de cumplimiento CIS.",
+        "- Severidad: impacto potencial si el criterio se incumple; un PASS no requiere corrección.",
         "",
-        "| ID | Estado | Severidad | Control | Evidencia | Recomendación |",
-        "|---|---|---|---|---|---|",
+        "| ID | Estado | Severidad | Control | Evidencia | Criterio esperado | Riesgo del incumplimiento | Acción propuesta |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for item in data["findings"]:
         clean = lambda value: str(value).replace("|", "\\|").replace("\n", " ")
-        rows.append("| {id} | {status} | {severity} | {title} | {evidence} | {recommendation} |".format(**{key: clean(value) for key, value in item.items()}))
+        values = dict(item)
+        values.setdefault("expected", "No registrado en este reporte anterior.")
+        values.setdefault("risk", "No registrado en este reporte anterior.")
+        rows.append("| {id} | {status} | {severity} | {title} | {evidence} | {expected} | {risk} | {recommendation} |".format(**{key: clean(value) for key, value in values.items()}))
     return "\n".join(rows) + "\n"
 
 

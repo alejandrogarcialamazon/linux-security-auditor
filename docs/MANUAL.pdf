@@ -122,7 +122,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
 endobj
 7 0 obj
-<< /Length 2526 >>
+<< /Length 2678 >>
 stream
 BT
 /F1 10 Tf
@@ -212,7 +212,42 @@ T*
 T*
 (• summary: número de resultados por estado.) Tj
 T*
-(• findings: ID, título, severidad, evidencia, recomendación y si es remediable.) Tj
+(• findings: ID, título, severidad, evidencia, criterio esperado \(expected\), riesgo potencial) Tj
+T*
+(  \(risk\), recomendación y si es remediable.) Tj
+T*
+(• scope: cantidad de comprobaciones y familias de controles. Los cinco servicios tienen IDs) Tj
+T*
+(  propios CIS-LITE-005-TELNET, -RSH, -REXEC, -TFTP y -XINETD; pertenecen a una misma) Tj
+T*
+(  familia.) Tj
+T*
+() Tj
+T*
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 3165 >>
+stream
+BT
+/F1 10 Tf
+48 794 Td
+14 TL
+(Los reportes Markdown separan observación, criterio, riesgo y acción. Los PASS muestran «Sin) Tj
+T*
+(  cambios necesarios». La severidad expresa el impacto potencial del incumplimiento, no una) Tj
+T*
+(  corrección pendiente en un control aprobado. Los lectores JSON deben aceptar los campos) Tj
+T*
+(  adicionales; cambia el ID de cada servicio. Los reportes anteriores todavía pueden) Tj
+T*
+(  renderizarse, indicando los campos no registrados. No se calcula un porcentaje de) Tj
+T*
+(  cumplimiento CIS.) Tj
 T*
 () Tj
 T*
@@ -224,19 +259,6 @@ T*
 T*
 (|---|---|---|) Tj
 T*
-ET
-endstream
-endobj
-8 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
-endobj
-9 0 obj
-<< /Length 3186 >>
-stream
-BT
-/F1 10 Tf
-48 794 Td
-14 TL
 (PASS  El criterio revisado se cumple  Conservar como evidencia) Tj
 T*
 (FAIL  Se detectó una configuración insegura  Revisar, aprobar y corregir) Tj
@@ -311,6 +333,19 @@ T*
 T*
 (  antes de cerrar su sesión existente.) Tj
 T*
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R >>
+endobj
+11 0 obj
+<< /Length 2391 >>
+stream
+BT
+/F1 10 Tf
+48 794 Td
+14 TL
 () Tj
 T*
 (La auditoría con sshd -T consulta valores globales; no evalúa todas las combinaciones) Tj
@@ -333,19 +368,6 @@ T*
 T*
 (Tampoco se aplican reglas de firewall ni se deshabilitan servicios porque esos cambios) Tj
 T*
-ET
-endstream
-endobj
-10 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R >>
-endobj
-11 0 obj
-<< /Length 1720 >>
-stream
-BT
-/F1 10 Tf
-48 794 Td
-14 TL
 (  requieren conocer puertos, dependencias y ruta de acceso de cada host.) Tj
 T*
 () Tj
@@ -433,12 +455,12 @@ xref
 0000000363 00000 n 
 0000003038 00000 n 
 0000003164 00000 n 
-0000005742 00000 n 
-0000005868 00000 n 
-0000009106 00000 n 
-0000009234 00000 n 
+0000005894 00000 n 
+0000006020 00000 n 
+0000009237 00000 n 
+0000009365 00000 n 
 trailer
 << /Size 12 /Root 1 0 R >>
 startxref
-11007
+11809
 %%EOF
