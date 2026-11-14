@@ -21,14 +21,14 @@ class AuditorTests(unittest.TestCase):
         with patch.object(auditor.shutil, 'which', return_value='/usr/sbin/ufw'), patch.object(
             auditor, 'command', return_value=(1, '', 'Permission denied')
         ):
-            self.assertEqual(auditor.audit_firewall()[0].status, 'WARN')
+            self.assertEqual(auditor.audit_firewall_primary()[0].status, 'WARN')
 
     def test_ufw_active_and_inactive(self):
         for output, expected in [('Status: active', 'PASS'), ('Status: inactive', 'FAIL')]:
             with self.subTest(output=output), patch.object(auditor.shutil, 'which', return_value='ufw'), patch.object(
                 auditor, 'command', return_value=(0, output, '')
             ):
-                self.assertEqual(auditor.audit_firewall()[0].status, expected)
+                self.assertEqual(auditor.audit_firewall_primary()[0].status, expected)
 
     def test_global_directive_preserves_match_and_is_idempotent(self):
         source = '# comment\nInclude /etc/ssh/sshd_config.d/*.conf\nPermitRootLogin yes\nMatch User backup\n PermitRootLogin prohibit-password\n'

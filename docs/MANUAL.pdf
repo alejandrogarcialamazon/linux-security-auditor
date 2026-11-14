@@ -449,7 +449,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 13 0 R >>
 endobj
 13 0 obj
-<< /Length 1203 >>
+<< /Length 1570 >>
 stream
 BT
 /F1 10 Tf
@@ -503,6 +503,20 @@ T*
 T*
 (  no requiere Pandoc ni conexión a Internet.) Tj
 T*
+() Tj
+T*
+(Ampliaciones 5 y 6) Tj
+T*
+() Tj
+T*
+(Consulte firewall y servicios. Las consultas son de solo lectura. Se evalúan gestores y) Tj
+T*
+(  familias por separado; un PASS de política no garantiza seguridad global. Los servicios) Tj
+T*
+(  combinan unidades, habilitación, procesos y puertos; un puerto convencional sin) Tj
+T*
+(  identificación genera WARN.) Tj
+T*
 ET
 endstream
 endobj
@@ -525,5 +539,5 @@ xref
 trailer
 << /Size 14 /Root 1 0 R >>
 startxref
-14016
+14383
 %%EOF

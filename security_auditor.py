@@ -22,6 +22,7 @@ from contextlib import ExitStack
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
+import host_checks
 
 
 @dataclass
@@ -301,7 +302,7 @@ def service_is_active(name: str) -> tuple[bool | None, str]:
     return None, f"Estado no concluyente (código {code}): {stderr or stdout or 'sin salida'}"
 
 
-def audit_services() -> list[Finding]:
+def audit_services_legacy() -> list[Finding]:
     legacy = {
         "telnet.socket": "Telnet transmite credenciales sin cifrado",
         "rsh.socket": "rsh no proporciona autenticación ni cifrado modernos",
@@ -322,7 +323,7 @@ def audit_services() -> list[Finding]:
     return findings
 
 
-def audit_firewall() -> list[Finding]:
+def audit_firewall_primary() -> list[Finding]:
     findings: list[Finding] = []
     ufw = shutil.which("ufw")
     if ufw:
@@ -357,6 +358,15 @@ def audit_firewall() -> list[Finding]:
         return findings
 
     return [Finding("CIS-LITE-006", "Firewall", "WARN", "high", "No se encontró UFW ni iptables.", "Instale y configure un firewall compatible con su distribución.")]
+
+
+def audit_services() -> list[Finding]:
+    return host_checks.services(command, shutil.which, Finding)
+
+
+def audit_firewall() -> list[Finding]:
+    primary = audit_firewall_primary()
+    return primary + host_checks.firewall_extensions(command, shutil.which, Finding, include_ipv4=any('UFW' in f.title for f in primary))
 
 
 def audit(ssh_contexts: list[dict[str, str]] | None = None, ssh_config: Path | None = None) -> list[Finding]:

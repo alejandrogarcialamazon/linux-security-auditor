@@ -67,7 +67,7 @@ sudo python3 security_auditor.py --remediate ssh-root-login --yes
 - `/etc/shadow` admite lectura de grupo únicamente para GID 0 o el grupo local `shadow`. Con otro grupo se exige como máximo `0600`; se conserva el GID. No se auditan ACL ni pertenencias transitivas de grupos.
 - La revisión de iptables solo mira la política por defecto de `INPUT`; no puede determinar si todas las reglas son adecuadas ni si son persistentes.
 - Los servicios se marcan por su estado activo, no se deshabilitan automáticamente.
-- No gestiona nftables, firewalld, IPv6, SELinux/AppArmor, kernel, actualizaciones ni controles CIS completos.
+- Consulta de forma acotada nftables, firewalld e IPv6; no analiza todas las reglas ni gestiona esos backends. No cubre SELinux/AppArmor, kernel, actualizaciones ni controles CIS completos.
 
 Consulte el manual ampliado en [docs/MANUAL.md](docs/MANUAL.md). El mismo contenido se entrega como [docs/MANUAL.pdf](docs/MANUAL.pdf).
 
@@ -115,3 +115,5 @@ hasta 16 veces; siempre se conserva la evaluación global como referencia.
 necesitan. Estas opciones son sólo de auditoría y no se combinan con remediaciones.
 
 Detalles y pruebas: [mejora 4](docs/MEJORA-04-CONTEXTO-SSH.md).
+
+Ampliaciones: [firewall por backend](docs/MEJORA-05-FIREWALL.md) y [servicios, procesos y puertos](docs/MEJORA-06-SERVICIOS.md).

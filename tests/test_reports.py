@@ -16,7 +16,7 @@ class ReportTests(unittest.TestCase):
         groups = []
         for state in [True, False, None]:
             with patch.object(a, 'service_is_active', return_value=(state, 'fixture')):
-                findings = a.audit_services()
+                findings = a.audit_services_legacy()
             ids = [f.id for f in findings]
             self.assertEqual(len(set(ids)), 5)
             self.assertTrue(all(i.startswith('CIS-LITE-005-') for i in ids))
@@ -26,7 +26,7 @@ class ReportTests(unittest.TestCase):
 
     def test_structured_fields_and_scope_roundtrip(self):
         with patch.object(a, 'service_is_active', return_value=(False, 'inactive')):
-            findings = a.audit_services()
+            findings = a.audit_services_legacy()
         data = json.loads(json.dumps(a.report_data(findings)))
         self.assertEqual(data['scope'], {'checks': 5, 'control_families': 1})
         self.assertTrue(all(f['expected'] and f['risk'] for f in data['findings']))

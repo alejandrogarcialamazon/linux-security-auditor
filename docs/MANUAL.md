@@ -132,3 +132,7 @@ python3 tools/build_pdf.py docs/MANUAL.md docs/MANUAL.pdf
 ```
 
 El script utiliza solo la biblioteca estándar de Python y genera un PDF básico, por lo que no requiere Pandoc ni conexión a Internet.
+
+## Ampliaciones 5 y 6
+
+Consulte [firewall](MEJORA-05-FIREWALL.md) y [servicios](MEJORA-06-SERVICIOS.md). Las consultas son de solo lectura. Se evalúan gestores y familias por separado; un PASS de política no garantiza seguridad global. Los servicios combinan unidades, habilitación, procesos y puertos; un puerto convencional sin identificación genera WARN.
