@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Callable
 import host_checks
 import remediation_plan
+import remediation_transaction
 
 
 @dataclass
@@ -420,40 +421,13 @@ def plan_remediation(control: str) -> dict:
     raise ValueError('Control no soportado para planificación.')
 
 
-def remediate_permissions() -> str:
+def remediate_permissions(journal: Path | None = None) -> str:
     require_root()
-    changed: list[str] = []
-    # Preflight both files before changing anything. Descriptors pin the inode;
-    # O_NOFOLLOW refuses symlinks and O_NONBLOCK avoids hanging on a FIFO.
-    with ExitStack() as stack:
-        planned = []
-        for path, _, _ in ACCOUNT_FILES:
-            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
-            stack.callback(os.close, fd)
-            metadata = os.fstat(fd)
-            if not stat.S_ISREG(metadata.st_mode):
-                raise RuntimeError(f"{path} no es un archivo regular; no se aplicaron cambios.")
-            mode = stat.S_IMODE(metadata.st_mode)
-            planned.append((path, fd, metadata, mode & allowed_account_mode(path, metadata)))
-        for path, fd, metadata, target in planned:
-            if metadata.st_uid == 0 and stat.S_IMODE(metadata.st_mode) == target:
-                continue
-            try:
-                if metadata.st_uid != 0:
-                    os.fchown(fd, 0, -1)
-                    changed.append(f"{path}: propietario root")
-                if stat.S_IMODE(os.fstat(fd).st_mode) != target:
-                    os.fchmod(fd, target)
-                    changed.append(f"{path}: modo {target:04o}")
-                actual = os.fstat(fd)
-                if actual.st_uid != 0 or actual.st_gid != metadata.st_gid or stat.S_IMODE(actual.st_mode) != target:
-                    raise RuntimeError("La verificación de propietario/grupo/modo no coincide con lo previsto.")
-            except (OSError, RuntimeError) as exc:
-                raise RuntimeError(f"Falló la remediación de {path}: {exc}. Cambios ya realizados: {changed}. Revise el estado; no hay rollback automático.") from exc
-    return "; ".join(changed) if changed else "Sin cambios necesarios en los permisos de cuentas."
+    result = remediation_transaction.fix_permissions(ACCOUNT_FILES, allowed_account_mode, journal)
+    return 'Sin cambios necesarios en los permisos de cuentas.' if not result['changed'] else json.dumps(result, ensure_ascii=False)
 
 
-def remediate_ssh_root_login() -> str:
+def remediate_ssh_root_login(journal: Path | None = None) -> str:
     require_root()
     config = Path("/etc/ssh/sshd_config")
     sshd = shutil.which("sshd")
@@ -466,23 +440,19 @@ def remediate_ssh_root_login() -> str:
         settings, error = ssh_effective_settings()
         if code != 0 or error or settings.get('permitrootlogin') != 'no':
             raise RuntimeError(f'No se pudo validar SSH sin cambios: {stderr or stdout or error}')
+        remediation_transaction.save_record(journal, {'control': 'ssh-root-login', 'status': 'no_changes', 'changed': False})
         return 'Sin cambios necesarios en PermitRootLogin.'
-    backup = config.with_name(f"{config.name}.security-auditor-{datetime.now().strftime('%Y%m%d%H%M%S%f')}.bak")
-    with backup.open("x", encoding="utf-8") as stream:
-        os.chmod(backup, 0o600)
-        stream.write(original)
-    try:
-        config.write_text(updated, encoding="utf-8")
-        code, stdout, stderr = command([sshd, "-t", "-f", str(config)])
+    def validate(path):
+        code, stdout, stderr = command([sshd, '-t', '-f', str(path)])
         if code != 0:
-            raise RuntimeError(f"Configuración SSH inválida: {stderr or stdout}")
-        settings, error = ssh_effective_settings()
-        if error or settings.get("permitrootlogin") != "no":
-            raise RuntimeError(f"No se pudo verificar PermitRootLogin no: {error or settings}")
-    except (OSError, RuntimeError):
-        config.write_text(original, encoding="utf-8")
-        raise
-    return f"PermitRootLogin no guardado y validado. Recargue SSH manualmente y pruebe el acceso. Respaldo: {backup}"
+            raise RuntimeError(f'Configuración SSH inválida: {stderr or stdout}')
+    def effective(path):
+        settings, error = ssh_effective_settings(config=path)
+        if error:
+            raise RuntimeError(error)
+        return settings.get('permitrootlogin')
+    result = remediation_transaction.fix_ssh(config, original, updated, validate, effective, journal)
+    return f"PermitRootLogin no guardado y validado. Recargue SSH manualmente y pruebe el acceso. Respaldo: {result.get('backup')}"
 
 
 def report_data(findings: list[Finding]) -> dict:
@@ -539,10 +509,13 @@ def main() -> int:
     parser.add_argument("--output", type=Path, help="Ruta de salida (por defecto: stdout)")
     parser.add_argument("--remediate", choices=("permissions", "ssh-root-login"), help="Control seguro que desea remediar")
     parser.add_argument("--yes", action="store_true", help="Confirma el cambio solicitado; obligatorio con --remediate")
+    parser.add_argument('--remediation-log', type=Path, help='Registro privado de la operación, antes/después y recuperación; sólo al aplicar')
     parser.add_argument('--dry-run', action='store_true', help='Planifica el control indicado sin aplicar cambios ni requerir --yes/root')
     parser.add_argument("--ssh-context", action="append", type=parse_ssh_context, default=[], metavar="user=USUARIO,addr=IP[,host=NOMBRE,laddr=IP,lport=PUERTO]", help="Contexto de conexión SSH; repetible, máximo 16")
     parser.add_argument("--ssh-config", type=Path, help="Archivo de configuración SSH a consultar; sólo auditoría")
     args = parser.parse_args()
+    if args.remediation_log and (not args.remediate or args.dry_run):
+        parser.error('--remediation-log requiere una aplicación explícita, no auditoría ni dry-run.')
     if args.dry_run and not args.remediate:
         parser.error('--dry-run requiere seleccionar --remediate CONTROL.')
     if len(args.ssh_context) > 16:
@@ -564,8 +537,8 @@ def main() -> int:
         if not args.yes:
             parser.error("--remediate requiere --yes para evitar cambios accidentales.")
         actions: dict[str, Callable[[], str]] = {
-            "permissions": remediate_permissions,
-            "ssh-root-login": remediate_ssh_root_login,
+            "permissions": lambda: remediate_permissions(args.remediation_log),
+            "ssh-root-login": lambda: remediate_ssh_root_login(args.remediation_log),
         }
         try:
             print(f"REMEDITADO: {actions[args.remediate]()}", file=sys.stderr)

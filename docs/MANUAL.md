@@ -90,7 +90,7 @@ sudo python3 security_auditor.py --remediate permissions --yes
 sudo python3 security_auditor.py --remediate ssh-root-login --yes
 ```
 
-`permissions` comprueba ambos archivos antes de modificar, rechaza enlaces y archivos no regulares, establece UID root solo cuando corresponde y elimina únicamente permisos excedentes. Conserva los permisos más restrictivos y el grupo; no lee contenidos. Usa descriptores y verifica los metadatos después del cambio. No ofrece rollback transaccional: si una operación falla se informa qué cambios anteriores se realizaron. `ssh-root-login` rechaza configuraciones con `Match` o `Include` para exigir revisión manual de las excepciones. En configuraciones simples crea una copia privada con modo `0600` y marca temporal con microsegundos, aplica `PermitRootLogin no` al principio y ejecuta `sshd -t` y `sshd -T`. Si falla la validación o el valor efectivo no es `no`, restaura el contenido original. No recarga el servicio: el operador debe recargarlo y probar una nueva conexión antes de cerrar su sesión existente.
+`permissions` comprueba ambos archivos antes de modificar, rechaza enlaces y archivos no regulares, establece UID root solo cuando corresponde y elimina únicamente permisos excedentes. Conserva los permisos más restrictivos y el grupo; no lee contenidos. Usa descriptores y verifica los metadatos después del cambio. La mejora 8 intenta restaurar y verificar los metadatos ante fallos, sin garantizar atomicidad entre archivos ni recuperación ante corte de energía. `ssh-root-login` rechaza configuraciones con `Match` o `Include` para exigir revisión manual de las excepciones. En configuraciones simples crea una copia privada con modo `0600` y marca temporal con microsegundos, aplica `PermitRootLogin no` al principio y ejecuta `sshd -t` y `sshd -T`. Si falla la validación o el valor efectivo no es `no`, restaura el contenido original. No recarga el servicio: el operador debe recargarlo y probar una nueva conexión antes de cerrar su sesión existente.
 
 La auditoría predeterminada con `sshd -T` consulta valores globales. `--ssh-context 'user=root,addr=127.0.0.1,host=localhost'` agrega una consulta `-C` para ese contexto, sin abrir una sesión SSH. Es repetible hasta 16 veces; user/addr son obligatorios, host/laddr/lport opcionales. addr es la IP de origen del cliente; laddr/lport son dirección y puerto locales del servidor. Si faltan atributos exigidos por Match, la consulta puede quedar como WARN. Se rechazan campos desconocidos, duplicados, valores vacíos, separadores y puertos inválidos. Contextos equivalentes se deduplican y los IDs usan un sufijo CTX estable. JSON añade context y source a cada hallazgo. Sólo se evalúan los contextos suministrados, no todas las conexiones posibles.
 
@@ -108,7 +108,7 @@ Ejemplo de provisión que solo genera evidencia:
 
 ```bash
 sudo install -m 0755 /vagrant/security_auditor.py /usr/local/sbin/security_auditor.py
-sudo install -m 0644 /vagrant/host_checks.py /vagrant/remediation_plan.py /usr/local/sbin/
+sudo install -m 0644 /vagrant/host_checks.py /vagrant/remediation_plan.py /vagrant/remediation_transaction.py /usr/local/sbin/
 sudo mkdir -p /var/log/security-auditor
 sudo python3 /usr/local/sbin/security_auditor.py \
   --format json --output /var/log/security-auditor/initial.json || true
@@ -153,3 +153,15 @@ transaccional de permisos. Un plan bloqueado no constituye una orden aplicable.
 Las correcciones reales exigen root y --yes y vuelven a inspeccionar el host.
 Match/Include, enlaces o configuración inaccesible bloquean la corrección SSH;
 los hallazgos ya no la anuncian como remediable en esos casos.
+
+## Recuperación e integración (8 y 9)
+
+Consulte MEJORA-08-RECUPERACION.md para locks, restauración y --remediation-log.
+La aplicación SSH valida un candidato y conserva respaldo antes de sustituir
+atómicamente el archivo. No se recargan servicios. La recuperación es de mejor
+esfuerzo y no debe sobrescribir ediciones concurrentes. Registros nuevos 0600 y
+journals ajenos no se sobrescriben. Mantener evidencia y snapshot para producción.
+
+integration/vm_checks.py --fixtures-only ejercita el recorrido sobre archivos
+sintéticos y UID aislado. No remedia /etc. Ver MEJORA-09-INTEGRACION-VM.md para
+VMs configurables y CI en Ubuntu/Debian. No confundir una omisión con prueba exitosa.

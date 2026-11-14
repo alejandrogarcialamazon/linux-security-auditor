@@ -46,8 +46,7 @@ estado y puede rechazar condiciones que hayan cambiado.
 ## Requisitos y recuperación
 
 Se deben revisar los valores previstos y conservar un acceso alternativo antes de
-aplicar. El control de permisos sigue sin transacción/rollback automático: informa
-cambios parciales, y la recuperación exige revisar identidad y metadatos registrados.
+aplicar. Desde la mejora 8 se intenta restauración automática verificada de metadatos ante errores manejables; no hay atomicidad entre archivos ni garantía ante corte eléctrico. Un fallo de restauración exige revisar identidad y metadatos registrados.
 La aplicación SSH conserva su respaldo y restaura contenido ante error de validación;
 una recarga posterior y una nueva conexión corresponden al operador.
 

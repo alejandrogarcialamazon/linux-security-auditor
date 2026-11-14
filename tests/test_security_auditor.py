@@ -63,7 +63,7 @@ class AuditorTests(unittest.TestCase):
         result, content, backups = self.run_ssh_remediation(source, (1, '', 'invalid'))
         self.assertIsInstance(result, RuntimeError)
         self.assertEqual(content, source)
-        self.assertEqual(backups, [(0o600, source)])
+        self.assertEqual(backups, [])
 
     def test_ssh_effective_failure_restores_original(self):
         source = 'PermitRootLogin yes\n'

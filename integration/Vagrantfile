@@ -1,0 +1,21 @@
+# No VM is created until the operator explicitly invokes vagrant up.
+Vagrant.configure("2") do |config|
+  { "ubuntu" => ENV["AUDITOR_UBUNTU_BOX"], "debian" => ENV["AUDITOR_DEBIAN_BOX"] }.each do |name, box|
+    config.vm.define name do |machine|
+      machine.vm.box = box || "SET_AUDITOR_#{name.upcase}_BOX_BEFORE_UP"
+      machine.vm.synced_folder "..", "/vagrant", type: "virtualbox"
+      machine.vm.provider "virtualbox" do |provider|
+        provider.memory = 1024
+        provider.cpus = 1
+      end
+      machine.vm.provision "shell", inline: <<-SHELL
+        set -eu
+        apt-get update
+        apt-get install -y python3 openssh-server
+        install -d -m 0755 /run/sshd
+        cd /vagrant
+        PYTHONDONTWRITEBYTECODE=1 python3 integration/vm_checks.py --fixtures-only
+      SHELL
+    end
+  end
+end

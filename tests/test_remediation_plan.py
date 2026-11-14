@@ -89,7 +89,7 @@ class SSHPlanTests(unittest.TestCase):
         self.assertEqual(result['operations'], [])
 
     def test_unreadable_or_invalid_encoding_is_blocked(self):
-        with patch.object(Path, 'lstat', return_value=SimpleNamespace(st_mode=stat.S_IFREG)), patch.object(Path, 'read_text', side_effect=PermissionError('denied')):
+        with patch.object(Path, 'lstat', return_value=SimpleNamespace(st_mode=stat.S_IFREG)), patch.object(Path, 'open', side_effect=PermissionError('denied')):
             self.assertFalse(p.ssh_capability(Path('/fixture/config'), lambda name: 'sshd')[0])
 
     def test_remediability_agrees_with_capability(self):

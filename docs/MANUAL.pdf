@@ -231,7 +231,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
 endobj
 9 0 obj
-<< /Length 3051 >>
+<< /Length 3054 >>
 stream
 BT
 /F1 10 Tf
@@ -325,13 +325,13 @@ T*
 T*
 (  excedentes. Conserva los permisos más restrictivos y el grupo; no lee contenidos. Usa) Tj
 T*
-(  descriptores y verifica los metadatos después del cambio. No ofrece rollback) Tj
+(  descriptores y verifica los metadatos después del cambio. La mejora 8 intenta restaurar y) Tj
 T*
-(  transaccional: si una operación falla se informa qué cambios anteriores se realizaron.) Tj
+(  verificar los metadatos ante fallos, sin garantizar atomicidad entre archivos ni) Tj
 T*
-(  ssh-root-login rechaza configuraciones con Match o Include para exigir revisión manual de) Tj
+(  recuperación ante corte de energía. ssh-root-login rechaza configuraciones con Match o) Tj
 T*
-(  las excepciones. En configuraciones simples crea una copia privada con modo 0600 y marca) Tj
+(  Include para exigir revisión manual de las excepciones. En configuraciones simples crea) Tj
 T*
 ET
 endstream
@@ -340,19 +340,19 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R >>
 endobj
 11 0 obj
-<< /Length 3382 >>
+<< /Length 3389 >>
 stream
 BT
 /F1 10 Tf
 48 794 Td
 14 TL
-(  temporal con microsegundos, aplica PermitRootLogin no al principio y ejecuta sshd -t y) Tj
+(  una copia privada con modo 0600 y marca temporal con microsegundos, aplica PermitRootLogin) Tj
 T*
-(  sshd -T. Si falla la validación o el valor efectivo no es no, restaura el contenido) Tj
+(  no al principio y ejecuta sshd -t y sshd -T. Si falla la validación o el valor efectivo no) Tj
 T*
-(  original. No recarga el servicio: el operador debe recargarlo y probar una nueva conexión) Tj
+(  es no, restaura el contenido original. No recarga el servicio: el operador debe recargarlo) Tj
 T*
-(  antes de cerrar su sesión existente.) Tj
+(  y probar una nueva conexión antes de cerrar su sesión existente.) Tj
 T*
 () Tj
 T*
@@ -434,13 +434,13 @@ T*
 T*
 (sudo install -m 0755 /vagrant/securityauditor.py /usr/local/sbin/securityauditor.py) Tj
 T*
-(sudo install -m 0644 /vagrant/hostchecks.py /vagrant/remediationplan.py /usr/local/sbin/) Tj
+(sudo install -m 0644 /vagrant/hostchecks.py /vagrant/remediationplan.py) Tj
+T*
+(  /vagrant/remediationtransaction.py /usr/local/sbin/) Tj
 T*
 (sudo mkdir -p /var/log/security-auditor) Tj
 T*
 (sudo python3 /usr/local/sbin/securityauditor.py \\) Tj
-T*
-(--format json --output /var/log/security-auditor/initial.json || true) Tj
 T*
 ET
 endstream
@@ -449,12 +449,14 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 13 0 R >>
 endobj
 13 0 obj
-<< /Length 2607 >>
+<< /Length 2598 >>
 stream
 BT
 /F1 10 Tf
 48 794 Td
 14 TL
+(--format json --output /var/log/security-auditor/initial.json || true) Tj
+T*
 (`) Tj
 T*
 () Tj
@@ -549,8 +551,6 @@ T*
 T*
 (Las correcciones reales exigen root y --yes y vuelven a inspeccionar el host.) Tj
 T*
-(Match/Include, enlaces o configuración inaccesible bloquean la corrección SSH;) Tj
-T*
 ET
 endstream
 endobj
@@ -558,13 +558,39 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 15 0 R >>
 endobj
 15 0 obj
-<< /Length 102 >>
+<< /Length 968 >>
 stream
 BT
 /F1 10 Tf
 48 794 Td
 14 TL
+(Match/Include, enlaces o configuración inaccesible bloquean la corrección SSH;) Tj
+T*
 (los hallazgos ya no la anuncian como remediable en esos casos.) Tj
+T*
+() Tj
+T*
+(Recuperación e integración \(8 y 9\)) Tj
+T*
+() Tj
+T*
+(Consulte MEJORA-08-RECUPERACION.md para locks, restauración y --remediation-log.) Tj
+T*
+(La aplicación SSH valida un candidato y conserva respaldo antes de sustituir) Tj
+T*
+(atómicamente el archivo. No se recargan servicios. La recuperación es de mejor) Tj
+T*
+(esfuerzo y no debe sobrescribir ediciones concurrentes. Registros nuevos 0600 y) Tj
+T*
+(journals ajenos no se sobrescriben. Mantener evidencia y snapshot para producción.) Tj
+T*
+() Tj
+T*
+(integration/vmchecks.py --fixtures-only ejercita el recorrido sobre archivos) Tj
+T*
+(sintéticos y UID aislado. No remedia /etc. Ver MEJORA-09-INTEGRACION-VM.md para) Tj
+T*
+(VMs configurables y CI en Ubuntu/Debian. No confundir una omisión con prueba exitosa.) Tj
 T*
 ET
 endstream
@@ -581,14 +607,14 @@ xref
 0000003178 00000 n 
 0000006043 00000 n 
 0000006169 00000 n 
-0000009272 00000 n 
-0000009400 00000 n 
-0000012835 00000 n 
-0000012963 00000 n 
-0000015623 00000 n 
-0000015751 00000 n 
+0000009275 00000 n 
+0000009403 00000 n 
+0000012845 00000 n 
+0000012973 00000 n 
+0000015624 00000 n 
+0000015752 00000 n 
 trailer
 << /Size 16 /Root 1 0 R >>
 startxref
-15905
+16772
 %%EOF

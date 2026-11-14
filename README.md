@@ -133,3 +133,7 @@ requiriendo root y `--yes`. Los planes no se ejecutan ni se reutilizan como órd
 Detalles: [mejora 7](docs/MEJORA-07-PLAN-REMEDIACION.md).
 Al copiar la herramienta fuera del repositorio deben acompañarla `host_checks.py`
 y `remediation_plan.py`; no son dependencias de pip.
+
+Remediaciones recuperables: [mejora 8](docs/MEJORA-08-RECUPERACION.md).
+Integración en fixtures/VM: [mejora 9](docs/MEJORA-09-INTEGRACION-VM.md).
+Al distribuir por copia de archivos también debe incluirse `remediation_transaction.py`.

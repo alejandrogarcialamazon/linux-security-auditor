@@ -8,7 +8,7 @@ def ssh_capability(config, which):
             return False, 'sshd no disponible', ''
         if not stat.S_ISREG(config.lstat().st_mode):
             return False, 'La configuración SSH no es un archivo regular o es un enlace.', ''
-        content = config.read_text(encoding='utf-8')
+        with config.open('r', encoding='utf-8', newline='') as stream:content = stream.read()
         if any(line.split()[0].lower() in {'match', 'include'} for line in content.splitlines() if line.strip() and not line.lstrip().startswith('#')):
             return False, 'Match/Include requiere revisión manual; no se ofrece corrección automática.', ''
         return True, '', content
@@ -41,7 +41,7 @@ def permissions(files, allowed_mode):
         except (OSError, ValueError) as exc:
             plan['blockers'].append(f'{path}: {exc}')
     plan['status'] = 'blocked' if plan['blockers'] else ('planned' if plan['operations'] else 'no_changes')
-    plan['requirements'].append('No hay rollback transaccional de permisos: un fallo puede dejar cambios parciales.')
+    plan['requirements'].append('Se intenta restaurar metadatos ante fallos; no hay atomicidad entre archivos ni garantía ante corte de energía. Revise cualquier rollback incompleto.')
     return plan
 
 

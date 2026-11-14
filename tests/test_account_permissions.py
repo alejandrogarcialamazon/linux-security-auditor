@@ -89,6 +89,13 @@ class AccountAuditTests(unittest.TestCase):
 
 
 class PermissionRemediationTests(unittest.TestCase):
+    def setUp(self):
+        # Legacy syscall doubles use fd=99; locking/identity have dedicated real tests.
+        for target in ['remediation_transaction.fcntl.flock', 'remediation_transaction.verify_path_identity', 'remediation_transaction.os.fsync']:
+            patcher = patch(target)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
     def files(self, directory):
         return [(Path(directory) / name, 'TEST', name) for name in ['passwd', 'shadow']]
 
@@ -163,7 +170,7 @@ class PermissionRemediationTests(unittest.TestCase):
         ), patch.object(auditor.os, 'open', return_value=99), patch.object(auditor.os, 'close') as close, patch.object(
             auditor.os, 'fstat', return_value=metadata(0o666, gid=0)
         ), patch.object(auditor.os, 'fchmod', side_effect=PermissionError('denied')):
-            with self.assertRaisesRegex(RuntimeError, 'no hay rollback'):
+            with self.assertRaisesRegex(RuntimeError, 'restauración'):
                 auditor.remediate_permissions()
             close.assert_called_once_with(99)
 
