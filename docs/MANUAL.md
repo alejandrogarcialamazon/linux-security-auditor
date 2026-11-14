@@ -46,11 +46,11 @@ La herramienta no deshabilita servicios: su eliminación puede afectar aplicacio
 
 ### 3.4 Firewall
 
-- Si UFW existe, la comprobación aprueba solo si `ufw status` informa `Status: active`. Un error, estado vacío, desconocido o contradictorio produce `WARN`; una salida válida de firewall inactivo produce `FAIL` respecto de UFW.
+- Si UFW existe, la comprobación aprueba solo si `ufw status` informa `Status: active`. Un error, estado vacío, desconocido, contradictorio o inactivo produce `WARN` en la auditoría completa: el gestor UFW no es obligatorio si existen otros filtros.
 - Si UFW no existe pero iptables sí, aprueba sólo si la consulta termina correctamente y contiene una única política por defecto `INPUT DROP`. `REJECT` no es una política por defecto válida; políticas desconocidas, duplicadas, ausentes o `ACCEPT` producen `WARN`, pues no se evalúa el conjunto completo de reglas.
 - Si no existe ninguno, informa `WARN`.
 
-Una política restrictiva por sí sola no demuestra que las reglas sean correctas. En particular, esta versión no analiza nftables, firewalld ni reglas IPv6.
+Una política restrictiva por sí sola no demuestra que las reglas sean correctas. Las mejoras 5 y 6 incorporan consultas acotadas de nftables, firewalld e IPv6, unidades, procesos y puertos. Consulte sus documentos para criterios y límites.
 
 ## 4. Ejecución y reportes
 
@@ -108,6 +108,7 @@ Ejemplo de provisión que solo genera evidencia:
 
 ```bash
 sudo install -m 0755 /vagrant/security_auditor.py /usr/local/sbin/security_auditor.py
+sudo install -m 0644 /vagrant/host_checks.py /vagrant/remediation_plan.py /usr/local/sbin/
 sudo mkdir -p /var/log/security-auditor
 sudo python3 /usr/local/sbin/security_auditor.py \
   --format json --output /var/log/security-auditor/initial.json || true
@@ -136,3 +137,19 @@ El script utiliza solo la biblioteca estándar de Python y genera un PDF básico
 ## Ampliaciones 5 y 6
 
 Consulte [firewall](MEJORA-05-FIREWALL.md) y [servicios](MEJORA-06-SERVICIOS.md). Las consultas son de solo lectura. Se evalúan gestores y familias por separado; un PASS de política no garantiza seguridad global. Los servicios combinan unidades, habilitación, procesos y puertos; un puerto convencional sin identificación genera WARN.
+
+## Mejora 7: planificación
+
+`--remediate permissions --dry-run` y `--remediate ssh-root-login --dry-run`
+seleccionan un control sin aplicarlo. Se exponen diferencias semánticas, archivos,
+precondiciones y recuperación, sin incluir el contenido completo de SSH. No se
+requiere root/--yes; incluso --yes no convierte dry-run en aplicación.
+Con --output se escribe únicamente el informe pedido; sin él sólo se emite stdout.
+
+Los estados planned/no_changes devuelven 0 y blocked devuelve 2. Es un esquema de
+plan diferente del reporte de auditoría: no tiene summary/findings. La sintaxis
+SSH se valida durante la aplicación, no se certifica al planificar. No hay rollback
+transaccional de permisos. Un plan bloqueado no constituye una orden aplicable.
+Las correcciones reales exigen root y --yes y vuelven a inspeccionar el host.
+Match/Include, enlaces o configuración inaccesible bloquean la corrección SSH;
+los hallazgos ya no la anuncian como remediable en esos casos.

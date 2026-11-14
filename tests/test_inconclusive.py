@@ -37,7 +37,7 @@ class SSHClassificationTests(unittest.TestCase):
             settings = {'passwordauthentication': 'no'}
             if value is not None:
                 settings['permitrootlogin'] = value
-            with self.subTest(value=value), patch.object(auditor, 'ssh_effective_settings', return_value=(settings, '')):
+            with self.subTest(value=value), patch.object(auditor, 'ssh_effective_settings', return_value=(settings, '')), patch.object(auditor, 'ssh_remediation_capability', return_value=(True, '', 'fixture')):
                 result = auditor.audit_ssh()[0]
             self.assertEqual(result.status, status)
             self.assertEqual(result.remediable, status == 'FAIL')
@@ -167,9 +167,9 @@ class InconclusiveReportTests(unittest.TestCase):
             auditor.shutil, 'which', return_value='ufw'
         ), patch.object(auditor, 'command', return_value=(0, 'Status: inactive', '')):
             data = auditor.report_data(auditor.audit())
-        self.assertEqual(data['summary']['FAIL'], 2)
+        self.assertEqual(data['summary']['FAIL'], 1)
         self.assertGreaterEqual(data['summary']['WARN'], 2)
-        self.assertEqual([item['id'] for item in data['findings'] if item['status'] == 'FAIL'], ['CIS-LITE-003', 'CIS-LITE-006'])
+        self.assertEqual([item['id'] for item in data['findings'] if item['status'] == 'FAIL'], ['CIS-LITE-003'])
 
     def test_completely_inconclusive_audit_does_not_contain_pass_or_fail(self):
         with patch.object(auditor.shutil, 'which', return_value=None), patch.object(

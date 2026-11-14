@@ -117,3 +117,19 @@ necesitan. Estas opciones son sólo de auditoría y no se combinan con remediaci
 Detalles y pruebas: [mejora 4](docs/MEJORA-04-CONTEXTO-SSH.md).
 
 Ampliaciones: [firewall por backend](docs/MEJORA-05-FIREWALL.md) y [servicios, procesos y puertos](docs/MEJORA-06-SERVICIOS.md).
+
+## Planificar una remediación sin aplicarla
+
+```bash
+python3 security_auditor.py --remediate permissions --dry-run --format json
+python3 security_auditor.py --remediate ssh-root-login --dry-run --format markdown
+```
+
+No requiere root ni `--yes`. Devuelve estado `planned`, `no_changes` o `blocked`,
+con diferencias, requisitos y recuperación. No modifica configuración ni servicios;
+`--output` sólo guarda el informe solicitado. Las aplicaciones reales siguen
+requiriendo root y `--yes`. Los planes no se ejecutan ni se reutilizan como órdenes.
+
+Detalles: [mejora 7](docs/MEJORA-07-PLAN-REMEDIACION.md).
+Al copiar la herramienta fuera del repositorio deben acompañarla `host_checks.py`
+y `remediation_plan.py`; no son dependencias de pip.

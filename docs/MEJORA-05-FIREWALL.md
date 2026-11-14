@@ -4,7 +4,7 @@ Fecha: 2026-11-13.
 
 ## Funcionamiento y límites
 
-Se consultan nftables, firewalld e IPv6 aunque UFW esté instalado. Si UFW tiene prioridad, también se consulta iptables IPv4 de manera separada. Cada hallazgo tiene ID propio en la familia CIS-LITE-006. UFW inactivo sigue siendo un incumplimiento del gestor UFW, no una prueba de ausencia total de filtrado.
+Se consultan nftables, firewalld e IPv6 aunque UFW esté instalado. Si UFW tiene prioridad, también se consulta iptables IPv4 de manera separada. Cada hallazgo tiene ID propio en la familia CIS-LITE-006. Al finalizar la entrega 7 se precisa la agregación: UFW inactivo produce WARN en la auditoría completa, porque no implica ausencia total de filtrado ni exige usar ese gestor. La consulta primaria histórica conserva su criterio para compatibilidad de pruebas.
 
 nftables se consulta con JSON y sólo aprueba el criterio acotado de políticas input drop para ambas familias (inet o ip/ip6). firewalld consulta estado, zonas activas y sus targets: sólo DROP/REJECT de todas las zonas identificadas aprueba ese criterio. ip6tables consulta una política INPUT DROP única. Errores, formatos desconocidos, familias parciales y herramientas no disponibles producen WARN. Un PASS no acredita las reglas completas, forwarding, prioridades, Docker, alcance externo o persistencia.
 

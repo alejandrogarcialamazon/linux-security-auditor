@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 import host_checks
+import remediation_plan
 
 
 @dataclass
@@ -122,6 +123,9 @@ def audit_file_permissions() -> list[Finding]:
             recommendation,
             remediable=status == "FAIL",
         ))
+    if any(item.status == 'WARN' for item in findings):
+        for item in findings:
+            item.remediable = False
     return findings
 
 
@@ -251,7 +255,7 @@ def audit_ssh_context(context: dict[str, str] | None = None, config: Path | None
         ("PASS" if root_login == "no" else "FAIL") if root_known else "WARN", "high",
         f"permitrootlogin={root_login}; {root_meanings.get(root_login, 'valor no reconocido')}",
         "Defina PermitRootLogin no." if root_known else "No se obtuvo un valor válido; revise sshd -T antes de corregir.",
-        remediable=root_known and root_login != "no",
+        remediable=root_known and root_login != "no" and context is None and config is None and ssh_remediation_capability()[0],
     ))
     password_auth = settings.get("passwordauthentication", "unknown")
     # Password auth can be required by an organization's access model, therefore
@@ -366,6 +370,12 @@ def audit_services() -> list[Finding]:
 
 def audit_firewall() -> list[Finding]:
     primary = audit_firewall_primary()
+    for item in primary:
+        if 'UFW' in item.title and item.status == 'FAIL':
+            item.status = 'WARN'
+            item.evidence += '; gestor UFW inactivo, no demuestra ausencia de otros filtros'
+            item.recommendation = 'Revise los demás backends antes de elegir gestor; no active UFW automáticamente sobre reglas existentes.'
+            item.expected = 'Identificar el estado de UFW sin inferir por sí solo la protección global del host.'
     return primary + host_checks.firewall_extensions(command, shutil.which, Finding, include_ipv4=any('UFW' in f.title for f in primary))
 
 
@@ -396,6 +406,18 @@ def replace_or_append_directive(content: str, directive: str, value: str) -> str
 def require_root() -> None:
     if os.geteuid() != 0:
         raise PermissionError("La remediación exige ejecutar como root (sudo).")
+
+
+def ssh_remediation_capability(config: Path | None = None):
+    return remediation_plan.ssh_capability(config if config is not None else Path('/etc/ssh/sshd_config'), shutil.which)
+
+
+def plan_remediation(control: str) -> dict:
+    if control == 'permissions':
+        return remediation_plan.permissions(ACCOUNT_FILES, allowed_account_mode)
+    if control == 'ssh-root-login':
+        return remediation_plan.ssh(Path('/etc/ssh/sshd_config'), ssh_remediation_capability, replace_or_append_directive)
+    raise ValueError('Control no soportado para planificación.')
 
 
 def remediate_permissions() -> str:
@@ -435,15 +457,16 @@ def remediate_ssh_root_login() -> str:
     require_root()
     config = Path("/etc/ssh/sshd_config")
     sshd = shutil.which("sshd")
-    if not config.exists() or not sshd:
-        raise RuntimeError("No se encontró sshd o su archivo de configuración.")
-    original = config.read_text(encoding="utf-8")
-    # Conditional exceptions require an operator to evaluate connection contexts.
-    # Includes may also contain Match; a global -T check cannot rule those out.
-    if any(line.strip().lower().split(None, 1)[0] in {"match", "include"}
-           for line in original.splitlines() if line.strip() and not line.lstrip().startswith("#")):
-        raise RuntimeError("La remediación automática no admite Match/Include; revise SSH manualmente.")
+    allowed, reason, original = ssh_remediation_capability(config)
+    if not allowed:
+        raise RuntimeError(reason)
     updated = replace_or_append_directive(original, "PermitRootLogin", "no")
+    if updated == original:
+        code, stdout, stderr = command([sshd, '-t', '-f', str(config)])
+        settings, error = ssh_effective_settings()
+        if code != 0 or error or settings.get('permitrootlogin') != 'no':
+            raise RuntimeError(f'No se pudo validar SSH sin cambios: {stderr or stdout or error}')
+        return 'Sin cambios necesarios en PermitRootLogin.'
     backup = config.with_name(f"{config.name}.security-auditor-{datetime.now().strftime('%Y%m%d%H%M%S%f')}.bak")
     with backup.open("x", encoding="utf-8") as stream:
         os.chmod(backup, 0o600)
@@ -516,13 +539,26 @@ def main() -> int:
     parser.add_argument("--output", type=Path, help="Ruta de salida (por defecto: stdout)")
     parser.add_argument("--remediate", choices=("permissions", "ssh-root-login"), help="Control seguro que desea remediar")
     parser.add_argument("--yes", action="store_true", help="Confirma el cambio solicitado; obligatorio con --remediate")
+    parser.add_argument('--dry-run', action='store_true', help='Planifica el control indicado sin aplicar cambios ni requerir --yes/root')
     parser.add_argument("--ssh-context", action="append", type=parse_ssh_context, default=[], metavar="user=USUARIO,addr=IP[,host=NOMBRE,laddr=IP,lport=PUERTO]", help="Contexto de conexión SSH; repetible, máximo 16")
     parser.add_argument("--ssh-config", type=Path, help="Archivo de configuración SSH a consultar; sólo auditoría")
     args = parser.parse_args()
+    if args.dry_run and not args.remediate:
+        parser.error('--dry-run requiere seleccionar --remediate CONTROL.')
     if len(args.ssh_context) > 16:
         parser.error("Se admiten como máximo 16 contextos SSH.")
     if args.remediate and (args.ssh_context or args.ssh_config is not None):
         parser.error("--remediate no admite --ssh-context ni --ssh-config; estas opciones son de auditoría.")
+
+    if args.dry_run:
+        plan = plan_remediation(args.remediate)
+        rendered = json.dumps(plan, ensure_ascii=False, indent=2) + '\n' if args.format == 'json' else remediation_plan.markdown(plan)
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(rendered, encoding='utf-8')
+        else:
+            print(rendered, end='')
+        return 2 if plan['status'] == 'blocked' else 0
 
     if args.remediate:
         if not args.yes:

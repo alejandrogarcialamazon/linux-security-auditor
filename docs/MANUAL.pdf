@@ -4,7 +4,7 @@
 << /Type /Catalog /Pages 2 0 R >>
 endobj
 2 0 obj
-<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R 10 0 R 12 0 R] /Count 5 >>
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R 10 0 R 12 0 R 14 0 R] /Count 6 >>
 endobj
 3 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
@@ -122,7 +122,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
 endobj
 7 0 obj
-<< /Length 2795 >>
+<< /Length 2813 >>
 stream
 BT
 /F1 10 Tf
@@ -174,9 +174,9 @@ T*
 T*
 (• Si UFW existe, la comprobación aprueba solo si ufw status informa Status: active. Un) Tj
 T*
-(  error, estado vacío, desconocido o contradictorio produce WARN; una salida válida de) Tj
+(  error, estado vacío, desconocido, contradictorio o inactivo produce WARN en la auditoría) Tj
 T*
-(  firewall inactivo produce FAIL respecto de UFW.) Tj
+(  completa: el gestor UFW no es obligatorio si existen otros filtros.) Tj
 T*
 (• Si UFW no existe pero iptables sí, aprueba sólo si la consulta termina correctamente y) Tj
 T*
@@ -190,9 +190,11 @@ T*
 T*
 () Tj
 T*
-(Una política restrictiva por sí sola no demuestra que las reglas sean correctas. En) Tj
+(Una política restrictiva por sí sola no demuestra que las reglas sean correctas. Las mejoras) Tj
 T*
-(  particular, esta versión no analiza nftables, firewalld ni reglas IPv6.) Tj
+(  5 y 6 incorporan consultas acotadas de nftables, firewalld e IPv6, unidades, procesos y) Tj
+T*
+(  puertos. Consulte sus documentos para criterios y límites.) Tj
 T*
 () Tj
 T*
@@ -222,8 +224,6 @@ T*
 T*
 (  \(risk\), recomendación y si es remediable.) Tj
 T*
-(• scope: cantidad de comprobaciones y familias de controles. Los cinco servicios tienen IDs) Tj
-T*
 ET
 endstream
 endobj
@@ -231,12 +231,14 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
 endobj
 9 0 obj
-<< /Length 3048 >>
+<< /Length 3051 >>
 stream
 BT
 /F1 10 Tf
 48 794 Td
 14 TL
+(• scope: cantidad de comprobaciones y familias de controles. Los cinco servicios tienen IDs) Tj
+T*
 (  propios CIS-LITE-005-TELNET, -RSH, -REXEC, -TFTP y -XINETD; pertenecen a una misma) Tj
 T*
 (  familia.) Tj
@@ -331,8 +333,6 @@ T*
 T*
 (  las excepciones. En configuraciones simples crea una copia privada con modo 0600 y marca) Tj
 T*
-(  temporal con microsegundos, aplica PermitRootLogin no al principio y ejecuta sshd -t y) Tj
-T*
 ET
 endstream
 endobj
@@ -340,12 +340,14 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R >>
 endobj
 11 0 obj
-<< /Length 3207 >>
+<< /Length 3382 >>
 stream
 BT
 /F1 10 Tf
 48 794 Td
 14 TL
+(  temporal con microsegundos, aplica PermitRootLogin no al principio y ejecuta sshd -t y) Tj
+T*
 (  sshd -T. Si falla la validación o el valor efectivo no es no, restaura el contenido) Tj
 T*
 (  original. No recarga el servicio: el operador debe recargarlo y probar una nueva conexión) Tj
@@ -432,15 +434,13 @@ T*
 T*
 (sudo install -m 0755 /vagrant/securityauditor.py /usr/local/sbin/securityauditor.py) Tj
 T*
+(sudo install -m 0644 /vagrant/hostchecks.py /vagrant/remediationplan.py /usr/local/sbin/) Tj
+T*
 (sudo mkdir -p /var/log/security-auditor) Tj
 T*
 (sudo python3 /usr/local/sbin/securityauditor.py \\) Tj
 T*
 (--format json --output /var/log/security-auditor/initial.json || true) Tj
-T*
-(`) Tj
-T*
-() Tj
 T*
 ET
 endstream
@@ -449,12 +449,16 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 13 0 R >>
 endobj
 13 0 obj
-<< /Length 1570 >>
+<< /Length 2607 >>
 stream
 BT
 /F1 10 Tf
 48 794 Td
 14 TL
+(`) Tj
+T*
+() Tj
+T*
 (El || true evita que un hallazgo de endurecimiento corte el provisionamiento; el reporte) Tj
 T*
 (  sigue disponible para revisión. Para producción, conecte el JSON a su sistema de) Tj
@@ -517,27 +521,74 @@ T*
 T*
 (  identificación genera WARN.) Tj
 T*
+() Tj
+T*
+(Mejora 7: planificación) Tj
+T*
+() Tj
+T*
+(--remediate permissions --dry-run y --remediate ssh-root-login --dry-run) Tj
+T*
+(seleccionan un control sin aplicarlo. Se exponen diferencias semánticas, archivos,) Tj
+T*
+(precondiciones y recuperación, sin incluir el contenido completo de SSH. No se) Tj
+T*
+(requiere root/--yes; incluso --yes no convierte dry-run en aplicación.) Tj
+T*
+(Con --output se escribe únicamente el informe pedido; sin él sólo se emite stdout.) Tj
+T*
+() Tj
+T*
+(Los estados planned/nochanges devuelven 0 y blocked devuelve 2. Es un esquema de) Tj
+T*
+(plan diferente del reporte de auditoría: no tiene summary/findings. La sintaxis) Tj
+T*
+(SSH se valida durante la aplicación, no se certifica al planificar. No hay rollback) Tj
+T*
+(transaccional de permisos. Un plan bloqueado no constituye una orden aplicable.) Tj
+T*
+(Las correcciones reales exigen root y --yes y vuelven a inspeccionar el host.) Tj
+T*
+(Match/Include, enlaces o configuración inaccesible bloquean la corrección SSH;) Tj
+T*
+ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 15 0 R >>
+endobj
+15 0 obj
+<< /Length 102 >>
+stream
+BT
+/F1 10 Tf
+48 794 Td
+14 TL
+(los hallazgos ya no la anuncian como remediable en esos casos.) Tj
+T*
 ET
 endstream
 endobj
 xref
-0 14
+0 16
 0000000000 65535 f 
 0000000015 00000 n 
 0000000064 00000 n 
-0000000147 00000 n 
-0000000244 00000 n 
-0000000370 00000 n 
-0000003045 00000 n 
-0000003171 00000 n 
-0000006018 00000 n 
-0000006144 00000 n 
-0000009244 00000 n 
-0000009372 00000 n 
-0000012632 00000 n 
-0000012760 00000 n 
+0000000154 00000 n 
+0000000251 00000 n 
+0000000377 00000 n 
+0000003052 00000 n 
+0000003178 00000 n 
+0000006043 00000 n 
+0000006169 00000 n 
+0000009272 00000 n 
+0000009400 00000 n 
+0000012835 00000 n 
+0000012963 00000 n 
+0000015623 00000 n 
+0000015751 00000 n 
 trailer
-<< /Size 14 /Root 1 0 R >>
+<< /Size 16 /Root 1 0 R >>
 startxref
-14383
+15905
 %%EOF

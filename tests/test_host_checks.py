@@ -2,9 +2,18 @@ import json
 import unittest
 import host_checks as h
 from security_auditor import Finding
+import security_auditor as a
+from unittest.mock import patch
 
 
 class FirewallTests(unittest.TestCase):
+    def test_inactive_ufw_does_not_claim_host_has_no_firewall(self):
+        inactive = Finding('CIS-LITE-006', 'Firewall UFW', 'FAIL', 'high', 'Status: inactive', 'Activate')
+        with patch.object(a, 'audit_firewall_primary', return_value=[inactive]), patch.object(h, 'firewall_extensions', return_value=[]):
+            result = a.audit_firewall()[0]
+        self.assertEqual(result.status, 'WARN')
+        self.assertIn('no demuestra', result.evidence)
+
     def nft(self, payload, code=0):
         return h.firewall_extensions(lambda args: (code, json.dumps(payload), 'denied' if code else ''), lambda name: name if name == 'nft' else None, Finding)[0]
 
