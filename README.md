@@ -137,3 +137,10 @@ y `remediation_plan.py`; no son dependencias de pip.
 Remediaciones recuperables: [mejora 8](docs/MEJORA-08-RECUPERACION.md).
 Integración en fixtures/VM: [mejora 9](docs/MEJORA-09-INTEGRACION-VM.md).
 Al distribuir por copia de archivos también debe incluirse `remediation_transaction.py`.
+
+
+### Auditoría ampliada y seguimiento
+
+`python3 security_auditor.py --extended --profile servidor --compare reports/antes.json --output reports/actual.json`
+
+Perfiles y excepciones temporales, controles de cuentas/sudoers/reloj, ejecución SSH y plantilla Jenkins, JSON versionado y resumen de cobertura: documentación en `docs/MEJORA-10-*` a `docs/MEJORA-14-*`. Para uso remoto copie todos los módulos Python de la raíz o utilice `tools/audit_remote.py`, que prepara el directorio temporal. Los reportes reales permanecen fuera del repositorio.

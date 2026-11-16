@@ -1,0 +1,24 @@
+// Plantilla manual: no está desplegada ni ejecuta remediaciones.
+// Requiere agente con Python 3, SSH y known_hosts verificado previamente.
+pipeline {
+    agent any
+    parameters {
+        string(name: 'AUDIT_HOST', defaultValue: '', description: 'Host autorizado')
+        string(name: 'AUDIT_USER', defaultValue: '', description: 'Usuario de lectura')
+    }
+    stages {
+        stage('Pruebas') {
+            steps { sh 'python3 -m unittest discover -s tests -v' }
+        }
+        stage('Auditoría') {
+            steps {
+                script {
+                    int status = sh(returnStatus: true, script: 'mkdir -p reports; python3 tools/audit_remote.py "$AUDIT_HOST" --user "$AUDIT_USER" --extended > reports/audit.json')
+                    if (status == 1) { unstable('Hallazgos de seguridad') }
+                    else if (status != 0) { error('Auditoría inconclusa o fallo operativo') }
+                }
+            }
+        }
+    }
+    // Los reportes pueden contener datos internos: no se publican como artifacts.
+}

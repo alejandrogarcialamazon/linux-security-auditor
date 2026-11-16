@@ -558,7 +558,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 15 0 R >>
 endobj
 15 0 obj
-<< /Length 968 >>
+<< /Length 1443 >>
 stream
 BT
 /F1 10 Tf
@@ -592,6 +592,24 @@ T*
 T*
 (VMs configurables y CI en Ubuntu/Debian. No confundir una omisión con prueba exitosa.) Tj
 T*
+() Tj
+T*
+() Tj
+T*
+(Mejoras 10–14) Tj
+T*
+() Tj
+T*
+(Perfiles explícitos y excepciones temporales \(MEJORA-10\); controles adicionales con) Tj
+T*
+(  --extended \(MEJORA-11\); ejecución SSH de lectura y plantilla Jenkins \(MEJORA-12\);) Tj
+T*
+(  --compare para reportes versionados \(MEJORA-13\); resumen coverage y duración \(MEJORA-14\).) Tj
+T*
+(  Consulte los documentos individuales para comandos, criterios y límites. Ningún PASS) Tj
+T*
+(  certifica conformidad CIS.) Tj
+T*
 ET
 endstream
 endobj
@@ -616,5 +634,5 @@ xref
 trailer
 << /Size 16 /Root 1 0 R >>
 startxref
-16772
+17248
 %%EOF

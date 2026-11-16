@@ -25,6 +25,10 @@ from typing import Callable
 import host_checks
 import remediation_plan
 import remediation_transaction
+import audit_policy
+import extended_controls
+import report_analysis
+import time
 
 
 @dataclass
@@ -40,6 +44,7 @@ class Finding:
     risk: str = ""
     context: dict[str, str] = field(default_factory=dict)
     source: str = ""
+    observed: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         family = control_family(self.id)
@@ -268,6 +273,8 @@ def audit_ssh_context(context: dict[str, str] | None = None, config: Path | None
         "No se obtuvo un valor válido; revise sshd -T antes de corregir." if password_auth not in {"yes", "no"} else "Tras verificar acceso por llave para una cuenta administrativa, defina PasswordAuthentication no.",
     ))
     findings.append(ssh_authentication_finding(settings))
+    for finding in findings:
+        finding.observed = {key: value for key, value in settings.items() if key in SSH_KEYS}
     return findings
 
 
@@ -479,6 +486,7 @@ def markdown_report(data: dict) -> str:
         f"- Host: `{data['host']}`",
         f"- Fecha UTC: `{data['generated_at']}`",
         f"- Resultado: {summary['PASS']} PASS, {summary['FAIL']} FAIL, {summary['WARN']} WARN, {summary['INFO']} INFO",
+        f"- Perfil: {data.get('policy', {}).get('profile', 'servidor')}; exceptuados: {summary.get('EXCEPTED', 0)} (no se cuentan como PASS).",
         f"- Alcance: {data.get('scope', {}).get('checks', len(data['findings']))} comprobaciones; no representa un porcentaje de cumplimiento CIS.",
         "- Severidad: impacto potencial si el criterio se incumple; un PASS no requiere corrección.",
         "- SSH: configuración en disco; los resultados globales no cubren todos los Match ni prueban acceso real o MFA.",
@@ -489,9 +497,23 @@ def markdown_report(data: dict) -> str:
     for item in data["findings"]:
         clean = lambda value: str(value).replace("|", "\\|").replace("\n", " ")
         values = dict(item)
+        if item['status'] == 'EXCEPTED':
+            values['status'] = f"EXCEPTED (criterio: {item['policy_status']}; base: {item['baseline_status']})"
         values.setdefault("expected", "No registrado en este reporte anterior.")
         values.setdefault("risk", "No registrado en este reporte anterior.")
         rows.append("| {id} | {status} | {severity} | {title} | {evidence} | {expected} | {risk} | {recommendation} |".format(**{key: clean(value) for key, value in values.items()}))
+    if 'coverage' in data:
+        coverage = data['coverage']
+        rows.extend(['', f"Revisión pendiente: {coverage['review']}; exceptuados: {coverage['excepted']}; duración: {data['execution']['duration_seconds']} s.", coverage['limitation']])
+    if 'comparison' in data:
+        rows.extend(['', 'Comparación de estados: ' + json.dumps(data['comparison']['counts'], ensure_ascii=False), 'Controles retirados o exceptuados no se consideran resueltos.'])
+    exceptions = data.get('policy', {}).get('exceptions', [])
+    if exceptions:
+        import html
+        rows.extend(['', '## Excepciones revisadas', '', '| ID | Host | Estado | Responsable | Vencimiento | Motivo |', '|---|---|---|---|---|---|'])
+        for exception in exceptions:
+            cells = [html.escape(str(exception[key])).replace('|', '\\|').replace('\n', ' ').replace('\r', ' ') for key in ('id', 'host', 'state', 'responsible', 'expires_at', 'reason')]
+            rows.append('| ' + ' | '.join(cells) + ' |')
     return "\n".join(rows) + "\n"
 
 
@@ -509,11 +531,27 @@ def main() -> int:
     parser.add_argument("--output", type=Path, help="Ruta de salida (por defecto: stdout)")
     parser.add_argument("--remediate", choices=("permissions", "ssh-root-login"), help="Control seguro que desea remediar")
     parser.add_argument("--yes", action="store_true", help="Confirma el cambio solicitado; obligatorio con --remediate")
+    parser.add_argument('--extended', action='store_true', help='Controles adicionales de cuentas, sudoers y reloj, sólo lectura')
+    parser.add_argument('--compare', type=Path, help='Reporte JSON anterior del mismo host y perfil')
+    parser.add_argument('--profile', choices=tuple(audit_policy.PROFILES), default='servidor', help='Perfil explícito de evaluación')
+    parser.add_argument('--exceptions', type=Path, help='JSON privado de excepciones por host/control con responsable y vencimiento')
+    parser.add_argument('--fail-on-exceptions', action='store_true', help='Devuelve 1 también si se aplica alguna excepción')
     parser.add_argument('--remediation-log', type=Path, help='Registro privado de la operación, antes/después y recuperación; sólo al aplicar')
     parser.add_argument('--dry-run', action='store_true', help='Planifica el control indicado sin aplicar cambios ni requerir --yes/root')
     parser.add_argument("--ssh-context", action="append", type=parse_ssh_context, default=[], metavar="user=USUARIO,addr=IP[,host=NOMBRE,laddr=IP,lport=PUERTO]", help="Contexto de conexión SSH; repetible, máximo 16")
     parser.add_argument("--ssh-config", type=Path, help="Archivo de configuración SSH a consultar; sólo auditoría")
     args = parser.parse_args()
+    if args.remediate and (args.profile != 'servidor' or args.exceptions or args.fail_on_exceptions):
+        parser.error('Perfiles/excepciones son sólo de auditoría; no alteran una aplicación o plan explícitos.')
+    if args.remediate and (args.extended or args.compare):
+        parser.error('--extended y --compare son sólo de auditoría.')
+    if args.fail_on_exceptions and args.exceptions is None:
+        parser.error('--fail-on-exceptions requiere --exceptions.')
+    try:
+        exceptions = audit_policy.load(args.exceptions) if args.exceptions else []
+    except (OSError, ValueError) as exc:
+        print(f'ERROR DE POLÍTICA: {exc}', file=sys.stderr)
+        return 2
     if args.remediation_log and (not args.remediate or args.dry_run):
         parser.error('--remediation-log requiere una aplicación explícita, no auditoría ni dry-run.')
     if args.dry_run and not args.remediate:
@@ -546,7 +584,26 @@ def main() -> int:
             print(f"ERROR DE REMEDIACIÓN: {exc}", file=sys.stderr)
             return 2
 
+    started = time.monotonic()
     data = report_data(audit(args.ssh_context, args.ssh_config) if args.ssh_context or args.ssh_config is not None else audit())
+    if args.extended:
+        extra = extended_controls.audit(command, Finding)
+        data['findings'].extend(asdict(item) for item in extra)
+        data['scope']['checks'] = len(data['findings'])
+        data['scope']['control_families'] = len({control_family(item['id']) for item in data['findings']})
+    data = audit_policy.evaluate(data, args.profile, exceptions)
+    data = report_analysis.enrich(data, time.monotonic() - started)
+    if args.remediate:
+        data['execution']['mode'] = 'explicit_remediation_then_audit'
+    if args.compare:
+        try:
+            if args.compare.stat().st_size > 16 * 1024 * 1024:
+                raise ValueError('Reporte anterior supera 16 MiB')
+            previous = json.loads(args.compare.read_text(encoding='utf-8'))
+            data['comparison'] = report_analysis.compare(previous, data)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            print(f'ERROR DE COMPARACIÓN: {exc}', file=sys.stderr)
+            return 2
     if args.output:
         write_report(data, args.output, args.format)
         print(f"Reporte escrito en {args.output}", file=sys.stderr)
@@ -554,7 +611,7 @@ def main() -> int:
         print(json.dumps(data, ensure_ascii=False, indent=2))
     else:
         print(markdown_report(data))
-    return 1 if data["summary"]["FAIL"] else 0
+    return 1 if data["summary"]["FAIL"] or (args.fail_on_exceptions and data['summary'].get('EXCEPTED', 0)) else 0
 
 
 if __name__ == "__main__":

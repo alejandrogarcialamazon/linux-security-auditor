@@ -165,3 +165,8 @@ journals ajenos no se sobrescriben. Mantener evidencia y snapshot para producci�
 integration/vm_checks.py --fixtures-only ejercita el recorrido sobre archivos
 sintéticos y UID aislado. No remedia /etc. Ver MEJORA-09-INTEGRACION-VM.md para
 VMs configurables y CI en Ubuntu/Debian. No confundir una omisión con prueba exitosa.
+
+
+## Mejoras 10–14
+
+Perfiles explícitos y excepciones temporales (MEJORA-10); controles adicionales con --extended (MEJORA-11); ejecución SSH de lectura y plantilla Jenkins (MEJORA-12); --compare para reportes versionados (MEJORA-13); resumen coverage y duración (MEJORA-14). Consulte los documentos individuales para comandos, criterios y límites. Ningún PASS certifica conformidad CIS.
