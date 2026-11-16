@@ -558,7 +558,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 15 0 R >>
 endobj
 15 0 obj
-<< /Length 1443 >>
+<< /Length 2086 >>
 stream
 BT
 /F1 10 Tf
@@ -610,6 +610,28 @@ T*
 T*
 (  certifica conformidad CIS.) Tj
 T*
+() Tj
+T*
+() Tj
+T*
+(Distribución portable \(mejora 15\)) Tj
+T*
+() Tj
+T*
+(Ejecute python3 tools/builddistribution.py y verifique con python3) Tj
+T*
+(  tools/builddistribution.py --verify reports/distribution. El archivo) Tj
+T*
+(  reports/distribution/linux-security-auditor.pyz funciona con Python 3.10+ sin pip.) Tj
+T*
+(  Consulte MEJORA-15-DISTRIBUCION-INTEGRIDAD.md para instalación en la cuenta del operador.) Tj
+T*
+(  SHA-256 detecta alteraciones respecto de un manifiesto confiable; no es una firma de) Tj
+T*
+(  autoría. La distribución conserva la auditoría de lectura predeterminada y las) Tj
+T*
+(  confirmaciones de remediación.) Tj
+T*
 ET
 endstream
 endobj
@@ -634,5 +656,5 @@ xref
 trailer
 << /Size 16 /Root 1 0 R >>
 startxref
-17248
+17891
 %%EOF

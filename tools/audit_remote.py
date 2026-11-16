@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tarfile
 
-MODULES = ('security_auditor.py', 'host_checks.py', 'remediation_plan.py', 'remediation_transaction.py', 'audit_policy.py', 'extended_controls.py', 'report_analysis.py')
+MODULES = ('security_auditor.py', 'host_checks.py', 'remediation_plan.py', 'remediation_transaction.py', 'audit_policy.py', 'extended_controls.py', 'report_analysis.py', 'auditor_version.py')
 REMOTE = '''import sys, tarfile, tempfile, subprocess, pathlib
 with tempfile.TemporaryDirectory(prefix="linux-auditor-") as directory:
     with tarfile.open(fileobj=sys.stdin.buffer, mode="r|*") as archive:

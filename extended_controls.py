@@ -7,7 +7,7 @@ def audit(run, finding, passwd=Path('/etc/passwd'), sudoers=Path('/etc/sudoers')
     result = []
     try:
         rows = [line.split(':') for line in passwd.read_text().splitlines() if line and not line.startswith('#')]
-        if any(len(row) != 7 or not row[2].isdigit() for row in rows):
+        if not rows or any(len(row) != 7 or not row[2].isdigit() for row in rows):
             raise ValueError('Formato passwd inesperado')
         extra = [row[0] for row in rows if int(row[2]) == 0 and row[0] != 'root']
         status, evidence = ('FAIL', 'Cuentas UID 0 adicionales: ' + ', '.join(extra)) if extra else ('PASS', 'Sin cuentas UID 0 adicionales en el archivo local')

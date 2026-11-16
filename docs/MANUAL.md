@@ -170,3 +170,8 @@ VMs configurables y CI en Ubuntu/Debian. No confundir una omisión con prueba ex
 ## Mejoras 10–14
 
 Perfiles explícitos y excepciones temporales (MEJORA-10); controles adicionales con --extended (MEJORA-11); ejecución SSH de lectura y plantilla Jenkins (MEJORA-12); --compare para reportes versionados (MEJORA-13); resumen coverage y duración (MEJORA-14). Consulte los documentos individuales para comandos, criterios y límites. Ningún PASS certifica conformidad CIS.
+
+
+## Distribución portable (mejora 15)
+
+Ejecute `python3 tools/build_distribution.py` y verifique con `python3 tools/build_distribution.py --verify reports/distribution`. El archivo `reports/distribution/linux-security-auditor.pyz` funciona con Python 3.10+ sin pip. Consulte MEJORA-15-DISTRIBUCION-INTEGRIDAD.md para instalación en la cuenta del operador. SHA-256 detecta alteraciones respecto de un manifiesto confiable; no es una firma de autoría. La distribución conserva la auditoría de lectura predeterminada y las confirmaciones de remediación.

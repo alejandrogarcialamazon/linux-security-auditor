@@ -144,3 +144,8 @@ Al distribuir por copia de archivos también debe incluirse `remediation_transac
 `python3 security_auditor.py --extended --profile servidor --compare reports/antes.json --output reports/actual.json`
 
 Perfiles y excepciones temporales, controles de cuentas/sudoers/reloj, ejecución SSH y plantilla Jenkins, JSON versionado y resumen de cobertura: documentación en `docs/MEJORA-10-*` a `docs/MEJORA-14-*`. Para uso remoto copie todos los módulos Python de la raíz o utilice `tools/audit_remote.py`, que prepara el directorio temporal. Los reportes reales permanecen fuera del repositorio.
+
+
+### Distribución portable
+
+`python3 tools/build_distribution.py` genera el ejecutable `.pyz` y `SHA256SUMS` en `reports/distribution/`. Verifique con `python3 tools/build_distribution.py --verify reports/distribution`. Instalación local, uso y límites de los hashes: [mejora 15](docs/MEJORA-15-DISTRIBUCION-INTEGRIDAD.md). No requiere pip.

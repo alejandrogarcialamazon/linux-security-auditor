@@ -6,7 +6,7 @@ STATUSES = {'PASS', 'FAIL', 'WARN', 'INFO', 'EXCEPTED'}
 
 
 def validate(data):
-    if not isinstance(data, dict) or data.get('schema_version', 1) != 1:
+    if not isinstance(data, dict) or type(data.get('schema_version', 1)) is not int or data.get('schema_version', 1) != 1:
         raise ValueError('Versión de reporte no soportada')
     if not isinstance(data.get('host'), str) or not isinstance(data.get('findings'), list):
         raise ValueError('Reporte inválido')

@@ -54,6 +54,15 @@ class ExtendedTests(unittest.TestCase):
             passwd.write_text('malformed')
             self.assertEqual(e.audit(lambda argv:(0,'no',''), a.Finding, passwd, passwd)[0].status, 'WARN')
 
+    def test_empty_accounts_inconclusive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'passwd'; path.write_text('')
+            self.assertEqual(e.audit(lambda argv:(0,'yes',''), a.Finding, path, path)[0].status, 'WARN')
+
+    def test_boolean_schema_rejected(self):
+        data = report(); data['schema_version'] = True
+        with self.assertRaises(ValueError): r.validate(data)
+
     def test_ntp_exact(self):
         for out, expected in [('yes','PASS'),('no','FAIL'),('unknown','WARN')]:
             self.assertEqual(e.audit(lambda argv:(0,out,''), a.Finding, Path('/not-present'), Path('/not-present'))[-1].status, expected)

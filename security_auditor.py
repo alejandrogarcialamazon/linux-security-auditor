@@ -25,6 +25,7 @@ from typing import Callable
 import host_checks
 import remediation_plan
 import remediation_transaction
+from auditor_version import VERSION
 import audit_policy
 import extended_controls
 import report_analysis
@@ -466,6 +467,7 @@ def report_data(findings: list[Finding]) -> dict:
     counts = {status: sum(item.status == status for item in findings) for status in ("PASS", "FAIL", "WARN", "INFO")}
     return {
         "tool": "security_auditor",
+        "tool_version": VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "host": os.uname().nodename,
         "platform": " ".join(os.uname()),
@@ -527,6 +529,7 @@ def write_report(data: dict, output: Path, report_format: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--version", action="version", version="linux-security-auditor " + VERSION)
     parser.add_argument("--format", choices=("json", "markdown"), default="json", help="Formato del reporte")
     parser.add_argument("--output", type=Path, help="Ruta de salida (por defecto: stdout)")
     parser.add_argument("--remediate", choices=("permissions", "ssh-root-login"), help="Control seguro que desea remediar")
